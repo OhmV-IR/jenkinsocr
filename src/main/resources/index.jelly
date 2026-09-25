@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+    A Jenkins plugin providing a build workflow to scan notes into Notion for digitization and easier reading later.
+</div>

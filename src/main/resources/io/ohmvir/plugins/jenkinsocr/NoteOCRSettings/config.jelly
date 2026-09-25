@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+    <f:section title="${%Note OCR Settings}">
+        <f:entry title="${%Model Id}" description="${%Which model to use for OCR? qwen2.5vl on ollama is recommended, but other frontier models should work.}" field="modelId">
+            <f:select />
+        </f:entry>
+        <f:entry title="${%Formula Output Type}" description="${%What rendering language should the model use for outputting formulas}" field="formulaOutputType">
+            <f:enum />
+        </f:entry>
+        <f:entry title="${%Temperature}" description="${%Temperature to use for OCR}" field="temperature">
+            <f:number />
+        </f:entry>
+        <f:entry title="${%Notion API Token}" field="notionApiTokenCredentialId">
+            <f:select />
+        </f:entry>
+    </f:section>
+</j:jelly>
