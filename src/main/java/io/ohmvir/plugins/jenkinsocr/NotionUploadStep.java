@@ -13,16 +13,15 @@ import hudson.model.TaskListener;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
-import jenkins.tasks.SimpleBuildStep;
-import lombok.Getter;
-import org.jspecify.annotations.NonNull;
-import org.kohsuke.stapler.DataBoundConstructor;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import jenkins.tasks.SimpleBuildStep;
+import lombok.Getter;
+import org.jspecify.annotations.NonNull;
+import org.kohsuke.stapler.DataBoundConstructor;
 
 public class NotionUploadStep extends Builder implements SimpleBuildStep {
     private final @Getter String notionText;
@@ -39,11 +38,13 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
     }
 
     @Override
-    public void perform(@NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull TaskListener listener) throws InterruptedException, IOException {
+    public void perform(@NonNull Run<?, ?> run, @NonNull EnvVars env, @NonNull TaskListener listener)
+            throws InterruptedException, IOException {
         listener.getLogger().println("Uploading notion text: " + notionText);
         String apiToken = SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null);
         try {
-            String createdPageId = createPageAtPathWithKatex(NoteOCRSettings.get().getRootPageId(), pagePath, notionText, apiToken);
+            String createdPageId =
+                    createPageAtPathWithKatex(NoteOCRSettings.get().getRootPageId(), pagePath, notionText, apiToken);
             listener.getLogger().println("Created page with id: " + createdPageId);
         } catch (Exception e) {
             listener.error("Failed to create notion page: " + e.getMessage());
@@ -60,7 +61,8 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
      * @param katexText  Raw LaTeX/KaTeX string
      * @return The ID of the final created/resolved page
      */
-    public String createPageAtPathWithKatex(String rootPageId, String path, String katexText, String apiToken) throws Exception {
+    public String createPageAtPathWithKatex(String rootPageId, String path, String katexText, String apiToken)
+            throws Exception {
         String[] segments = path.split("/");
         String currentParentId = rootPageId;
 

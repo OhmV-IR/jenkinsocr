@@ -5,18 +5,16 @@ import hudson.cli.CLICommand;
 import hudson.model.ParameterDefinition;
 import hudson.model.ParameterValue;
 import jakarta.servlet.ServletException;
+import java.io.IOException;
 import net.sf.json.JSONObject;
 import org.apache.commons.fileupload2.core.FileItem;
-import org.apache.commons.fileupload2.core.FileItemInput;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest2;
 
-import java.io.IOException;
-
 public class ImageParameterDefinition extends ParameterDefinition {
     @DataBoundConstructor
-    public ImageParameterDefinition(String name){
+    public ImageParameterDefinition(String name) {
         super(name);
     }
 
@@ -34,7 +32,7 @@ public class ImageParameterDefinition extends ParameterDefinition {
     public ParameterValue createValue(StaplerRequest2 req) {
         try {
             FileItem<?> item = req.getFileItem2(getName());
-            if(item == null || item.getName().isEmpty()){
+            if (item == null || item.getName().isEmpty()) {
                 return null;
             }
             return new ImageParameterValue(getName(), item);

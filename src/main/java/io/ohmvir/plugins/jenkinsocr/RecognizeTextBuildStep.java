@@ -3,31 +3,23 @@ package io.ohmvir.plugins.jenkinsocr;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import hudson.EnvVars;
 import hudson.Extension;
-import hudson.model.AbstractProject;
 import hudson.model.ParametersAction;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import hudson.tasks.BuildStepDescriptor;
-import hudson.tasks.Builder;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.InputImageContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.InputTextContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.ModelRequest;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.TemperatureContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.ModelResponse;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.OutputTextContent;
-import jenkins.tasks.SimpleBuildStep;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
 import lombok.Getter;
 import org.jenkinsci.plugins.workflow.steps.*;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.DataBoundConstructor;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 
 public class RecognizeTextBuildStep extends Step {
     private @Getter final String parameterName;
@@ -57,39 +49,44 @@ public class RecognizeTextBuildStep extends Step {
             TaskListener listener = getContext().get(TaskListener.class);
             listener.getLogger().println("Scanning build parameters for image parameter: " + parameterName);
             ParametersAction paramsAction = run.getAction(ParametersAction.class);
-            if(paramsAction == null){
+            if (paramsAction == null) {
                 throw new Exception("No parameters action found in the build");
             }
             ImageParameterValue paramValue = (ImageParameterValue) paramsAction.getParameter(parameterName);
-            if(paramValue == null){
+            if (paramValue == null) {
                 throw new Exception("Parameter " + parameterName + " not found or was not an image parameter");
             }
             ModelRequest request = new ModelRequest();
-            request.addInput(new InputTextContent(FORMULA_OUTPUT_TYPE_TO_PROMPT.get(NoteOCRSettings.get().getFormulaOutputType())));
+            request.addInput(new InputTextContent(
+                    FORMULA_OUTPUT_TYPE_TO_PROMPT.get(NoteOCRSettings.get().getFormulaOutputType())));
             request.addInput(new InputImageContent(paramValue.getImageData()));
             request.addInput(new TemperatureContent(NoteOCRSettings.get().getTemperature()));
             request.requestOutputType(OutputTextContent.class);
             listener.getLogger().println("Created request, now executing...");
             ModelResponse response = request.execute(NoteOCRSettings.get().getModel());
             listener.getLogger().println("Request finished!");
-            if(response == null){
+            if (response == null) {
                 throw new Exception("Model failed to produce a response");
             }
-            OutputTextContent outputText = response.getOutputs().stream().filter(modelOutput -> modelOutput instanceof OutputTextContent)
+            OutputTextContent outputText = response.getOutputs().stream()
+                    .filter(modelOutput -> modelOutput instanceof OutputTextContent)
                     .map(OutputTextContent.class::cast)
-                    .findFirst().orElse(null);
-            if(outputText == null){
+                    .findFirst()
+                    .orElse(null);
+            if (outputText == null) {
                 throw new Exception("Model didn't produce output text");
             }
             listener.getLogger().println("Model outputted text: " + outputText.getText());
-            JsonObject output = new Gson().fromJson(outputText.getText(), JsonElement.class).getAsJsonObject();
-            if(output.get("text").getAsString() == null){
+            JsonObject output =
+                    new Gson().fromJson(outputText.getText(), JsonElement.class).getAsJsonObject();
+            if (output.get("text").getAsString() == null) {
                 throw new Exception("Model didn't produce text field in the json");
             }
-            if(output.get("title").getAsString() == null){
+            if (output.get("title").getAsString() == null) {
                 throw new Exception("Model didn't produce title in the json");
             }
-            return new RecognizeTextOutput(output.get("text").getAsString(), output.get("title").getAsString());
+            return new RecognizeTextOutput(
+                    output.get("text").getAsString(), output.get("title").getAsString());
         }
     }
 

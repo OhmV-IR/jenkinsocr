@@ -1,8 +1,7 @@
 package io.ohmvir.plugins.jenkinsocr;
 
-import lombok.Getter;
-
 import java.io.Serializable;
+import lombok.Getter;
 
 public class RecognizeTextOutput implements Serializable {
     private @Getter final String text;
