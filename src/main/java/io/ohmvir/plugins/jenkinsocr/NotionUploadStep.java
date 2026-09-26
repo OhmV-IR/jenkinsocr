@@ -18,6 +18,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.List;
+
 import jenkins.tasks.SimpleBuildStep;
 import lombok.Getter;
 import org.jenkinsci.Symbol;
@@ -180,6 +183,94 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
                 .build();
 
         httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    /**
+     * Recursively traverses the Notion workspace starting at rootPageId
+     * and returns a list of all valid directory path categories (e.g., "Math/Algebra").
+     *
+     * @param rootPageId The root page ID to start listing directories from
+     * @param apiToken   The Notion API bearer token
+     * @return List of relative path strings representing category folders
+     */
+    public static List<String> getDirectoryPaths(String rootPageId, String apiToken) throws Exception {
+        List<String> directoryPaths = new ArrayList<>();
+        HttpClient client = HttpClient.newBuilder().build();
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        fetchChildDirectories(rootPageId, "", directoryPaths, apiToken, client, objectMapper);
+        return directoryPaths;
+    }
+
+    /**
+     * Formats the directory paths into a bulleted tree string suitable for LLM prompts.
+     */
+    public static String getDirectoryTreeFormatted(String rootPageId, String apiToken) throws Exception {
+        List<String> paths = getDirectoryPaths(rootPageId, apiToken);
+        StringBuilder tree = new StringBuilder();
+
+        for (String path : paths) {
+            int depth = path.split("/").length - 1;
+            String indent = "  ".repeat(depth);
+            String folderName = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+            tree.append(indent).append("- ").append(folderName).append(" (Path: ").append(path).append(")\n");
+        }
+
+        return tree.toString();
+    }
+
+    private static void fetchChildDirectories(
+            String parentId,
+            String currentPath,
+            List<String> directoryPaths,
+            String apiToken,
+            HttpClient client,
+            ObjectMapper mapper) throws Exception {
+
+        String startCursor = null;
+        boolean hasMore = true;
+
+        // Notion API pagination loop
+        while (hasMore) {
+            StringBuilder urlBuilder = new StringBuilder("https://api.notion.com/v1/blocks/")
+                    .append(parentId)
+                    .append("/children?page_size=100");
+
+            if (startCursor != null) {
+                urlBuilder.append("&start_cursor=").append(startCursor);
+            }
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(urlBuilder.toString()))
+                    .header("Authorization", "Bearer " + apiToken)
+                    .header("Notion-Version", "2022-06-28")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            JsonNode root = mapper.readTree(response.body());
+
+            if (root.has("results")) {
+                for (JsonNode block : root.get("results")) {
+                    // Notion represents sub-folders/sub-pages as blocks of type "child_page"
+                    if ("child_page".equals(block.path("type").asText())) {
+                        String pageTitle = block.path("child_page").path("title").asText();
+                        String childPageId = block.path("id").asText();
+
+                        String newPath = currentPath.isEmpty() ? pageTitle : currentPath + "/" + pageTitle;
+                        directoryPaths.add(newPath);
+
+                        // Recurse into sub-pages to build deeper category paths
+                        fetchChildDirectories(childPageId, newPath, directoryPaths, apiToken, client, mapper);
+                    }
+                }
+            }
+
+            hasMore = root.path("has_more").asBoolean(false);
+            if (hasMore) {
+                startCursor = root.path("next_cursor").asText();
+            }
+        }
     }
 
     @Extension

@@ -16,6 +16,8 @@ import io.ohmvir.plugins.jenkinsaisynapse.api.output.OutputTextContent;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+
+import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
 import lombok.Getter;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.steps.*;
@@ -58,8 +60,12 @@ public class RecognizeTextBuildStep extends Step {
                 throw new Exception("Parameter " + parameterName + " not found or was not an image parameter");
             }
             ModelRequest request = new ModelRequest();
-            request.addInput(new InputTextContent(
-                    FORMULA_OUTPUT_TYPE_TO_PROMPT.get(NoteOCRSettings.get().getFormulaOutputType())));
+            String prompt = FORMULA_OUTPUT_TYPE_TO_PROMPT.get(NoteOCRSettings.get().getFormulaOutputType());
+            prompt = prompt.replace("${DIR_TREE}", NotionUploadStep.getDirectoryTreeFormatted(
+                    NoteOCRSettings.get().getRootPageId(),
+                    SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null)
+            ));
+            request.addInput(new InputTextContent(prompt));
             request.addInput(new InputImageContent(paramValue.getImageData()));
             request.addInput(new TemperatureContent(NoteOCRSettings.get().getTemperature()));
             request.requestOutputType(OutputTextContent.class);
