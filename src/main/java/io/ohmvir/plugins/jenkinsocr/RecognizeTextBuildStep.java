@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import hudson.Extension;
+import hudson.init.InitMilestone;
+import hudson.init.Initializer;
 import hudson.model.ParametersAction;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -13,9 +15,17 @@ import io.ohmvir.plugins.jenkinsaisynapse.api.input.ModelRequest;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.TemperatureContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.ModelResponse;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.OutputTextContent;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
 import lombok.Getter;
@@ -26,7 +36,19 @@ import org.kohsuke.stapler.DataBoundConstructor;
 
 public class RecognizeTextBuildStep extends Step {
     private @Getter final String parameterName;
-    private static final Map<FormulaOutputType, String> FORMULA_OUTPUT_TYPE_TO_PROMPT = Map.of();
+    private static final Map<FormulaOutputType, String> FORMULA_OUTPUT_TYPE_TO_PROMPT = new HashMap<>();
+
+    @Initializer(after = InitMilestone.PLUGINS_STARTED)
+    private static void loadPrompts() throws IOException {
+        for(FormulaOutputType type : FormulaOutputType.values()){
+            try (InputStream is = RecognizeTextBuildStep.class.getResourceAsStream("prompts/" + type.name().toUpperCase() + ".md")){
+                if(is == null){
+                    Logger.getLogger(RecognizeTextBuildStep.class.getName()).log(Level.WARNING, "Could not find prompt file for " + type.name());
+                }
+                FORMULA_OUTPUT_TYPE_TO_PROMPT.put(type, new String(is.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        }
+    }
 
     @DataBoundConstructor
     public RecognizeTextBuildStep(String parameterName) {
