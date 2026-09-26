@@ -15,8 +15,7 @@ import io.ohmvir.plugins.jenkinsaisynapse.api.input.ModelRequest;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.TemperatureContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.ModelResponse;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.OutputTextContent;
-
-import java.io.File;
+import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -26,8 +25,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
 import lombok.Getter;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.steps.*;
@@ -40,10 +37,12 @@ public class RecognizeTextBuildStep extends Step {
 
     @Initializer(after = InitMilestone.PLUGINS_STARTED)
     private static void loadPrompts() throws IOException {
-        for(FormulaOutputType type : FormulaOutputType.values()){
-            try (InputStream is = RecognizeTextBuildStep.class.getResourceAsStream("prompts/" + type.name().toUpperCase() + ".md")){
-                if(is == null){
-                    Logger.getLogger(RecognizeTextBuildStep.class.getName()).log(Level.WARNING, "Could not find prompt file for " + type.name());
+        for (FormulaOutputType type : FormulaOutputType.values()) {
+            try (InputStream is = RecognizeTextBuildStep.class.getResourceAsStream(
+                    "prompts/" + type.name().toUpperCase() + ".md")) {
+                if (is == null) {
+                    Logger.getLogger(RecognizeTextBuildStep.class.getName())
+                            .log(Level.WARNING, "Could not find prompt file for " + type.name());
                 }
                 FORMULA_OUTPUT_TYPE_TO_PROMPT.put(type, new String(is.readAllBytes(), StandardCharsets.UTF_8));
             }
@@ -82,11 +81,13 @@ public class RecognizeTextBuildStep extends Step {
                 throw new Exception("Parameter " + parameterName + " not found or was not an image parameter");
             }
             ModelRequest request = new ModelRequest();
-            String prompt = FORMULA_OUTPUT_TYPE_TO_PROMPT.get(NoteOCRSettings.get().getFormulaOutputType());
-            prompt = prompt.replace("${DIR_TREE}", NotionUploadStep.getDirectoryTreeFormatted(
-                    NoteOCRSettings.get().getRootPageId(),
-                    SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null)
-            ));
+            String prompt =
+                    FORMULA_OUTPUT_TYPE_TO_PROMPT.get(NoteOCRSettings.get().getFormulaOutputType());
+            prompt = prompt.replace(
+                    "${DIR_TREE}",
+                    NotionUploadStep.getDirectoryTreeFormatted(
+                            NoteOCRSettings.get().getRootPageId(),
+                            SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null)));
             request.addInput(new InputTextContent(prompt));
             request.addInput(new InputImageContent(paramValue.getImageData()));
             request.addInput(new TemperatureContent(NoteOCRSettings.get().getTemperature()));
@@ -114,11 +115,13 @@ public class RecognizeTextBuildStep extends Step {
             if (output.get("title").getAsString() == null) {
                 throw new Exception("Model didn't produce title in the json");
             }
-            if(output.get("path").getAsString() == null){
+            if (output.get("path").getAsString() == null) {
                 throw new Exception("Model didn't produce path in the json");
             }
             return new RecognizeTextOutput(
-                    output.get("text").getAsString(), output.get("path").getAsString(), output.get("title").getAsString());
+                    output.get("text").getAsString(),
+                    output.get("path").getAsString(),
+                    output.get("title").getAsString());
         }
     }
 

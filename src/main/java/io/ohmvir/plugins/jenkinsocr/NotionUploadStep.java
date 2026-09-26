@@ -20,7 +20,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
-
 import jenkins.tasks.SimpleBuildStep;
 import lombok.Getter;
 import org.jenkinsci.Symbol;
@@ -49,8 +48,8 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
         listener.getLogger().println("Uploading notion text: " + notionText);
         String apiToken = SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null);
         try {
-            String createdPageId =
-                    createPageAtPathWithKatex(NoteOCRSettings.get().getRootPageId(), pagePath, pageTitle, notionText, apiToken);
+            String createdPageId = createPageAtPathWithKatex(
+                    NoteOCRSettings.get().getRootPageId(), pagePath, pageTitle, notionText, apiToken);
             listener.getLogger().println("Created page with id: " + createdPageId);
         } catch (Exception e) {
             listener.error("Failed to create notion page: " + e.getMessage());
@@ -60,7 +59,7 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
 
     /**
      * Traverses or creates pages along a path (e.g. "Math/Algebra")
-     * creates or finds the final page using pageTitle, and adds 
+     * creates or finds the final page using pageTitle, and adds
      * a KaTeX equation block to that final destination page.
      *
      * @param rootPageId The root Notion page ID where path resolution begins
@@ -70,8 +69,8 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
      * @param apiToken   Notion API bearer token
      * @return The ID of the final created/resolved page
      */
-    public String createPageAtPathWithKatex(String rootPageId, String path, String pageTitle, String katexText, String apiToken)
-            throws Exception {
+    public String createPageAtPathWithKatex(
+            String rootPageId, String path, String pageTitle, String katexText, String apiToken) throws Exception {
         String currentParentId = rootPageId;
 
         // 1. Walk through each segment, creating missing pages/folders along the way
@@ -213,7 +212,12 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
             int depth = path.split("/").length - 1;
             String indent = "  ".repeat(depth);
             String folderName = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
-            tree.append(indent).append("- ").append(folderName).append(" (Path: ").append(path).append(")\n");
+            tree.append(indent)
+                    .append("- ")
+                    .append(folderName)
+                    .append(" (Path: ")
+                    .append(path)
+                    .append(")\n");
         }
 
         return tree.toString();
@@ -225,7 +229,8 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
             List<String> directoryPaths,
             String apiToken,
             HttpClient client,
-            ObjectMapper mapper) throws Exception {
+            ObjectMapper mapper)
+            throws Exception {
 
         String startCursor = null;
         boolean hasMore = true;
@@ -254,7 +259,8 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
                 for (JsonNode block : root.get("results")) {
                     // Notion represents sub-folders/sub-pages as blocks of type "child_page"
                     if ("child_page".equals(block.path("type").asText())) {
-                        String pageTitle = block.path("child_page").path("title").asText();
+                        String pageTitle =
+                                block.path("child_page").path("title").asText();
                         String childPageId = block.path("id").asText();
 
                         String newPath = currentPath.isEmpty() ? pageTitle : currentPath + "/" + pageTitle;
