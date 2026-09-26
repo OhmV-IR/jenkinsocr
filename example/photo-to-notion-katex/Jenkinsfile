@@ -1,0 +1,38 @@
+pipeline {
+    agent any
+
+    parameters {
+        imageParameter(name: 'NOTE_IMAGE')
+    }
+
+    stages {
+        stage('Approval') {
+            steps {
+                input message: 'Proceed with processing the uploaded image?', ok: 'Yes, process it'
+            }
+        }
+
+        stage('OCR Processing') {
+            steps {
+                script {
+                    def ocrOutput = recognizeText(parameterName: 'NOTE_IMAGE')
+
+                    // Storing the outputs in environment variables for the next step
+                    env.EXTRACTED_TEXT = ocrOutput.text
+                    env.PAGE_TITLE = ocrOutput.title
+                    env.PAGE_PATH = ocrOutput.path
+                }
+            }
+        }
+
+        stage('Sync to Notion') {
+            steps {
+                notionUpload(
+                    notionText: env.EXTRACTED_TEXT,
+                    pageTitle: env.PAGE_TITLE,
+                    pagePath: env.PAGE_PATH
+                )
+            }
+        }
+    }
+}

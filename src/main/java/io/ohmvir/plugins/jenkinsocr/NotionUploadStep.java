@@ -20,18 +20,21 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import jenkins.tasks.SimpleBuildStep;
 import lombok.Getter;
+import org.jenkinsci.Symbol;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.DataBoundConstructor;
 
 public class NotionUploadStep extends Builder implements SimpleBuildStep {
     private final @Getter String notionText;
     private final @Getter String pagePath;
+    private final @Getter String pageTitle;
     private final HttpClient httpClient;
     private final ObjectMapper mapper;
 
     @DataBoundConstructor
-    public NotionUploadStep(String notionText, String pagePath) {
+    public NotionUploadStep(String notionText, String pageTitle, String pagePath) {
         this.notionText = notionText;
+        this.pageTitle = pageTitle;
         this.pagePath = pagePath;
         httpClient = HttpClient.newBuilder().build();
         mapper = new ObjectMapper();
@@ -44,7 +47,7 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
         String apiToken = SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null);
         try {
             String createdPageId =
-                    createPageAtPathWithKatex(NoteOCRSettings.get().getRootPageId(), pagePath, notionText, apiToken);
+                    createPageAtPathWithKatex(NoteOCRSettings.get().getRootPageId(), pagePath, pageTitle, notionText, apiToken);
             listener.getLogger().println("Created page with id: " + createdPageId);
         } catch (Exception e) {
             listener.error("Failed to create notion page: " + e.getMessage());
@@ -53,33 +56,49 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
     }
 
     /**
-     * Traverses or creates pages along a path (e.g. "Math/Algebra/Quadratics")
-     * and adds a KaTeX equation block to the final destination page.
+     * Traverses or creates pages along a path (e.g. "Math/Algebra")
+     * creates or finds the final page using pageTitle, and adds 
+     * a KaTeX equation block to that final destination page.
      *
      * @param rootPageId The root Notion page ID where path resolution begins
      * @param path       Path elements separated by slashes (e.g., "Math/Semester 1/Calculus")
+     * @param pageTitle  The name of the final page to hold the KaTeX block
      * @param katexText  Raw LaTeX/KaTeX string
+     * @param apiToken   Notion API bearer token
      * @return The ID of the final created/resolved page
      */
-    public String createPageAtPathWithKatex(String rootPageId, String path, String katexText, String apiToken)
+    public String createPageAtPathWithKatex(String rootPageId, String path, String pageTitle, String katexText, String apiToken)
             throws Exception {
-        String[] segments = path.split("/");
         String currentParentId = rootPageId;
 
-        // 1. Walk through each segment, creating missing pages along the way
-        for (String segment : segments) {
-            String trimmed = segment.trim();
-            if (trimmed.isEmpty()) continue;
+        // 1. Walk through each segment, creating missing pages/folders along the way
+        if (path != null && !path.trim().isEmpty()) {
+            String[] segments = path.split("/");
+            for (String segment : segments) {
+                String trimmed = segment.trim();
+                if (trimmed.isEmpty()) continue;
 
-            String existingId = findChildPageId(currentParentId, trimmed, apiToken);
-            if (existingId != null) {
-                currentParentId = existingId;
-            } else {
-                currentParentId = createBlankPage(currentParentId, trimmed, apiToken);
+                String existingId = findChildPageId(currentParentId, trimmed, apiToken);
+                if (existingId != null) {
+                    currentParentId = existingId;
+                } else {
+                    currentParentId = createBlankPage(currentParentId, trimmed, apiToken);
+                }
             }
         }
 
-        // 2. Append the KaTeX equation block to the final resolved page
+        // 2. Resolve or create the final page using the pageTitle
+        if (pageTitle != null && !pageTitle.trim().isEmpty()) {
+            String trimmedTitle = pageTitle.trim();
+            String finalPageId = findChildPageId(currentParentId, trimmedTitle, apiToken);
+            if (finalPageId != null) {
+                currentParentId = finalPageId;
+            } else {
+                currentParentId = createBlankPage(currentParentId, trimmedTitle, apiToken);
+            }
+        }
+
+        // 3. Append the KaTeX equation block to the final resolved page
         appendKatexBlock(currentParentId, katexText, apiToken);
 
         return currentParentId;
@@ -164,6 +183,7 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
     }
 
     @Extension
+    @Symbol("notionUpload")
     public static class DescriptorImpl extends BuildStepDescriptor<Builder> {
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> jobType) {

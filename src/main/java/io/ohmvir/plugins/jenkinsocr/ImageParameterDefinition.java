@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import java.io.IOException;
 import net.sf.json.JSONObject;
 import org.apache.commons.fileupload2.core.FileItem;
+import org.jenkinsci.Symbol;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest2;
@@ -42,6 +43,7 @@ public class ImageParameterDefinition extends ParameterDefinition {
     }
 
     @Extension
+    @Symbol("imageParameter")
     public static class DescriptorImpl extends ParameterDescriptor {
         @Override
         public @NonNull String getDisplayName() {

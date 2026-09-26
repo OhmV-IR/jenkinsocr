@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import lombok.Getter;
+import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.steps.*;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -85,12 +86,16 @@ public class RecognizeTextBuildStep extends Step {
             if (output.get("title").getAsString() == null) {
                 throw new Exception("Model didn't produce title in the json");
             }
+            if(output.get("path").getAsString() == null){
+                throw new Exception("Model didn't produce path in the json");
+            }
             return new RecognizeTextOutput(
-                    output.get("text").getAsString(), output.get("title").getAsString());
+                    output.get("text").getAsString(), output.get("path").getAsString(), output.get("title").getAsString());
         }
     }
 
     @Extension
+    @Symbol("recognizeText")
     public static class DescriptorImpl extends StepDescriptor {
         @Override
         public Set<? extends Class<?>> getRequiredContext() {
