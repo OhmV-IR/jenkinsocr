@@ -39,10 +39,11 @@ public class RecognizeTextBuildStep extends Step {
     public static void loadPrompts() throws IOException {
         for (FormulaOutputType type : FormulaOutputType.values()) {
             try (InputStream is = RecognizeTextBuildStep.class.getResourceAsStream(
-                    "prompts/" + type.name().toUpperCase() + ".md")) {
+                    "io/ohmvir/plugins/jenkinsocr/prompts/" + type.name().toUpperCase() + ".md")) {
                 if (is == null) {
                     Logger.getLogger(RecognizeTextBuildStep.class.getName())
                             .log(Level.WARNING, "Could not find prompt file for " + type.name());
+                    continue;
                 }
                 FORMULA_OUTPUT_TYPE_TO_PROMPT.put(type, new String(is.readAllBytes(), StandardCharsets.UTF_8));
             }
