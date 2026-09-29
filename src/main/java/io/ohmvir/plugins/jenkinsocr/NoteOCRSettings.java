@@ -14,61 +14,34 @@ import java.util.Collections;
 import jenkins.model.GlobalConfiguration;
 import jenkins.model.Jenkins;
 import lombok.Getter;
+import lombok.Setter;
+import net.sf.json.JSONObject;
 import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.AncestorInPath;
-import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest2;
 import org.kohsuke.stapler.verb.POST;
 
-/**
- * Example of Jenkins global configuration.
- */
 @Extension
 public class NoteOCRSettings extends GlobalConfiguration {
-    private @Getter final String modelId;
-    private @Getter final FormulaOutputType formulaOutputType;
-    private @Getter final double temperature;
-    private @Getter final String notionApiTokenCredentialId;
-    private @Getter final String rootPageId;
+    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) String modelId = "";
+    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) FormulaOutputType formulaOutputType =
+            FormulaOutputType.LATEX;
+    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) double temperature = 0.1;
+    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) String notionApiTokenCredentialId = "";
+    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) String rootPageId = "";
 
     public NoteOCRSettings() {
-        modelId = "";
-        formulaOutputType = FormulaOutputType.LATEX;
-        temperature = 0.1;
-        notionApiTokenCredentialId = "";
-        rootPageId = "";
+        load();
     }
 
-    @DataBoundConstructor
-    public NoteOCRSettings(
-            String modelId,
-            FormulaOutputType formulaOutputType,
-            double temperature,
-            String notionApiTokenCredentialId,
-            String rootPageId)
-            throws FormException {
-        if (modelId.isBlank()) {
-            throw new FormException("Model id should not be blank.", "modelId");
-        }
-        this.modelId = modelId;
-        if (formulaOutputType == null) {
-            throw new FormException("Formula output type should not be null.", "formulaOutputType");
-        }
-        this.formulaOutputType = formulaOutputType;
-        if (temperature < 0 || temperature > 1) {
-            throw new FormException("Temperature should be between 0 and 1.", "temperature");
-        }
-        this.temperature = temperature;
-        if (notionApiTokenCredentialId == null || notionApiTokenCredentialId.isBlank()) {
-            throw new FormException(
-                    "Must have a notion api token credential and it must not be blank", "notionApiTokenCredentialsId");
-        }
-        this.notionApiTokenCredentialId = notionApiTokenCredentialId;
-        if (rootPageId.isBlank()) {
-            throw new FormException("Root page id should not be blank.", "rootPageId");
-        }
-        this.rootPageId = rootPageId;
+    @Override
+    public boolean configure(StaplerRequest2 req, JSONObject json) throws FormException {
+        req.bindJSON(this, json);
+        save();
+        return true;
     }
 
     public static NoteOCRSettings get() {
@@ -86,7 +59,7 @@ public class NoteOCRSettings extends GlobalConfiguration {
 
     @POST
     public FormValidation doCheckModelId(@QueryParameter String value) {
-        if (value.isBlank()) {
+        if (value == null || value.isBlank()) {
             return FormValidation.error("Please enter a valid model ID");
         }
         return FormValidation.ok();
@@ -101,21 +74,37 @@ public class NoteOCRSettings extends GlobalConfiguration {
     }
 
     @POST
-    public FormValidation doCheckTemperature(@QueryParameter double temperature) {
-        if (temperature < 0 || temperature > 1) {
-            return FormValidation.error("Temperature should be between 0 and 1.");
+    public FormValidation doCheckTemperature(@QueryParameter String value) {
+        if (value == null || value.isBlank()) {
+            return FormValidation.error("Temperature is required");
+        }
+        try {
+            double temp = Double.parseDouble(value);
+            if (temp < 0 || temp > 1) {
+                return FormValidation.error("Temperature should be between 0 and 1.");
+            }
+            return FormValidation.ok();
+        } catch (NumberFormatException e) {
+            return FormValidation.error("Must be a valid decimal number");
+        }
+    }
+
+    @POST
+    public FormValidation doCheckNotionApiTokenCredentialId(@QueryParameter String value) {
+        if (value == null || value.isBlank()) {
+            return FormValidation.error("Notion API token credential ID must not be blank");
+        }
+        String secretValue = SecretsUtils.getSecretText(value, null);
+        if (secretValue == null || secretValue.isBlank()) {
+            return FormValidation.error("Notion API token secret could not be loaded");
         }
         return FormValidation.ok();
     }
 
     @POST
-    public FormValidation doCheckNotionApiTokenCredentialId(@QueryParameter String value) {
-        if (value.isBlank()) {
-            return FormValidation.error("Notion api token credentials id must not be blank");
-        }
-        String secretValue = SecretsUtils.getSecretText(value, null);
-        if (secretValue == null || secretValue.isBlank()) {
-            return FormValidation.error("Notion api token credentials id must not be blank");
+    public FormValidation doCheckRootPageId(@QueryParameter String value) {
+        if (value == null || value.isBlank()) {
+            return FormValidation.error("Root page ID should not be blank.");
         }
         return FormValidation.ok();
     }
@@ -141,13 +130,5 @@ public class NoteOCRSettings extends GlobalConfiguration {
                         StandardCredentials.class,
                         Collections.emptyList(),
                         CredentialsMatchers.instanceOf(StringCredentials.class));
-    }
-
-    @POST
-    public FormValidation doCheckRootPageId(@QueryParameter String value) {
-        if (value.isBlank()) {
-            return FormValidation.error("Root page id should not be blank.");
-        }
-        return FormValidation.ok();
     }
 }

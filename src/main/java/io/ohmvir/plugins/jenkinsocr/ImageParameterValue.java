@@ -11,8 +11,11 @@ import javax.imageio.ImageIO;
 import org.apache.commons.fileupload2.core.FileItem;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.export.Exported;
+import org.kohsuke.stapler.export.ExportedBean;
 
+@ExportedBean
 public class ImageParameterValue extends FileParameterValue {
+
     @DataBoundConstructor
     public ImageParameterValue(String name, FileItem file) {
         super(name, file);
@@ -20,6 +23,25 @@ public class ImageParameterValue extends FileParameterValue {
 
     public ImageParameterValue(String name, FileItem file, String filename) {
         super(name, file, filename);
+    }
+
+    public BufferedImage getImageData() throws IOException {
+        BufferedImage originalImage = null;
+
+        if (getFile2() != null) {
+            try (InputStream is = getFile2().getInputStream()) {
+                originalImage = ImageIO.read(is);
+            }
+        }
+
+        if (originalImage == null && getLocation() != null) {
+            File diskFile = new File(getLocation());
+            if (diskFile.exists()) {
+                originalImage = ImageIO.read(diskFile);
+            }
+        }
+
+        return originalImage;
     }
 
     public byte[] getImageDataPNG() throws IOException {
@@ -36,25 +58,12 @@ public class ImageParameterValue extends FileParameterValue {
         }
     }
 
-    public BufferedImage getImageData() throws IOException {
-        BufferedImage originalImage = null;
-        if (getFile2() != null) {
-            try (InputStream is = getFile2().getInputStream()) {
-                originalImage = ImageIO.read(is);
-            }
-        }
-        if (originalImage == null && getLocation() != null) {
-            File diskFile = new File(getLocation());
-            if (diskFile.exists()) {
-                originalImage = ImageIO.read(diskFile);
-            }
-        }
-
-        return originalImage;
-    }
-
     @Exported
     public String getImageDataPNGBase64() throws IOException {
-        return Base64.getEncoder().encodeToString(getImageDataPNG());
+        byte[] pngData = getImageDataPNG();
+        if (pngData == null) {
+            return null;
+        }
+        return Base64.getEncoder().encodeToString(pngData);
     }
 }

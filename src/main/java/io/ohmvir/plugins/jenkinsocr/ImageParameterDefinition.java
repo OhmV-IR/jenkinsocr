@@ -14,6 +14,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest2;
 
 public class ImageParameterDefinition extends ParameterDefinition {
+
     @DataBoundConstructor
     public ImageParameterDefinition(String name) {
         super(name);
@@ -21,7 +22,15 @@ public class ImageParameterDefinition extends ParameterDefinition {
 
     @Override
     public ParameterValue createValue(StaplerRequest2 req, JSONObject jo) {
-        return null;
+        try {
+            FileItem<?> item = req.getFileItem2(getName());
+            if (item == null || item.getName().isEmpty()) {
+                return null;
+            }
+            return new ImageParameterValue(getName(), item);
+        } catch (ServletException | IOException e) {
+            throw new IllegalArgumentException("Failed to upload image from form submission", e);
+        }
     }
 
     @Override

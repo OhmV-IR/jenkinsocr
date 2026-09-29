@@ -30,16 +30,14 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
     private final @Getter String notionText;
     private final @Getter String pagePath;
     private final @Getter String pageTitle;
-    private final HttpClient httpClient;
-    private final ObjectMapper mapper;
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder().build();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @DataBoundConstructor
     public NotionUploadStep(String notionText, String pageTitle, String pagePath) {
         this.notionText = notionText;
         this.pageTitle = pageTitle;
         this.pagePath = pagePath;
-        httpClient = HttpClient.newBuilder().build();
-        mapper = new ObjectMapper();
     }
 
     @Override
@@ -107,7 +105,7 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
     }
 
     private String findChildPageId(String parentId, String title, String apiToken) throws Exception {
-        ObjectNode body = mapper.createObjectNode();
+        ObjectNode body = MAPPER.createObjectNode();
         body.put("query", title);
 
         HttpRequest request = HttpRequest.newBuilder()
@@ -118,8 +116,8 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
                 .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        JsonNode root = mapper.readTree(response.body());
+        HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        JsonNode root = MAPPER.readTree(response.body());
 
         if (root.has("results")) {
             for (JsonNode node : root.get("results")) {
@@ -135,7 +133,7 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
     }
 
     private String createBlankPage(String parentId, String title, String apiToken) throws Exception {
-        ObjectNode body = mapper.createObjectNode();
+        ObjectNode body = MAPPER.createObjectNode();
 
         // Set parent
         ObjectNode parent = body.putObject("parent");
@@ -157,14 +155,14 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
                 .POST(HttpRequest.BodyPublishers.ofString(body.toString()))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        JsonNode root = mapper.readTree(response.body());
+        HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        JsonNode root = MAPPER.readTree(response.body());
 
         return root.get("id").asText();
     }
 
     private void appendKatexBlock(String pageId, String katexText, String apiToken) throws Exception {
-        ObjectNode body = mapper.createObjectNode();
+        ObjectNode body = MAPPER.createObjectNode();
         ArrayNode children = body.putArray("children");
 
         // KaTeX block object
@@ -181,7 +179,7 @@ public class NotionUploadStep extends Builder implements SimpleBuildStep {
                 .method("PATCH", HttpRequest.BodyPublishers.ofString(body.toString()))
                 .build();
 
-        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     /**
