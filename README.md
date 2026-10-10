@@ -70,6 +70,25 @@ per request).
 Existing configurations from before note providers were introduced are migrated to the Notion provider
 automatically.
 
+### Evernote
+
+Evernote has notebooks grouped in stacks rather than nested folders, so a note's path is mapped onto them:
+`Biology` is the notebook "Biology" (or, if a stack "Biology" exists, a notebook "Biology" in that stack),
+`Math/Linear Algebra` is the notebook "Linear Algebra" in the stack "Math", and further segments stay in the
+notebook name (`Math/Algebra/Groups` is the notebook "Algebra/Groups"). Notebook names are unique in an Evernote
+account, so an existing notebook with the wanted name is reused. An empty path uses the default notebook. Notes are
+written as ENML (headings, paragraphs, lists, quotes, code) and appended to when the title already exists.
+
+**Evernote cannot render equations.** With the `LATEX` or `KATEX` formula output type, formulas are kept as raw TeX
+source in monospace and `recognizeText` and `uploadNote` print a warning. Use `PURE_TEXT` with Evernote.
+
+1. Store an Evernote authentication token (a personal developer token, or an OAuth access token) as a
+   "Secret text" credential.
+2. Select **Evernote** as the note provider, then the credential and the service (Evernote, Yinxiang Biji, or the
+   developer sandbox).
+
+API calls go through the Jenkins proxy configuration; short rate limits are waited out automatically.
+
 ### Adding a note provider
 
 Note providers are a Jenkins extension point. Extend `io.ohmvir.plugins.jenkinsocr.notes.NoteProvider`, implement
