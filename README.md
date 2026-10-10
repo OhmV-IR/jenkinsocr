@@ -70,6 +70,23 @@ per request).
 Existing configurations from before note providers were introduced are migrated to the Notion provider
 automatically.
 
+### Obsidian
+
+Notes are stored as Markdown files in a vault folder; each folder of a note's path is a folder of the vault and the
+note is a `.md` file named after its title. Formulas are written as `$...$` and `$$...$$`, which Obsidian renders
+with MathJax. LaTeX output is converted to Markdown, plain text is escaped so that Obsidian shows it literally, and
+`\(...\)`/`\[...\]` formulas in KaTeX output are rewritten to the dollar delimiters Obsidian understands.
+
+1. Select **Obsidian** as the note provider.
+2. Enter the absolute path of the vault folder (or of a folder inside the vault). The folder must exist.
+3. Choose the node whose file system holds the vault: the controller, or an agent, for example one running on the
+   computer you use Obsidian on. Alternatively keep the vault in a synced location (Obsidian Sync, Git, Syncthing,
+   a cloud drive) reachable from the controller.
+
+Titles and folder names are made safe for every file system (characters such as `:`, `?`, `#` or `/` are replaced);
+when that changes a title, the original is kept as an Obsidian alias. Hidden folders such as `.obsidian` are never
+listed or written to.
+
 ### Adding a note provider
 
 Note providers are a Jenkins extension point. Extend `io.ohmvir.plugins.jenkinsocr.notes.NoteProvider`, implement
