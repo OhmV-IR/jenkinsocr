@@ -12,7 +12,7 @@
             <f:textbox default="0.1" />
         </f:entry>
         <f:entry title="${%Max Image Dimension}" field="maxImageDimension"
-                 description="${%Photos are scaled down so their longest edge is at most this many pixels (default 1568) before being sent to the model.}">
+                 description="${%Photos are scaled down so their longest edge is at most this many pixels before being sent to the model. Default: 1568.}">
             <f:number min="1" max="8000" default="1568" />
         </f:entry>
         <f:entry title="${%Notion API Token Credential}" field="notionApiTokenCredentialId">
