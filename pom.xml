@@ -69,6 +69,12 @@
 
   <dependencies>
     <dependency>
+      <!-- Generated Evernote (EDAM) Thrift client and types; requests are sent through Jenkins' HTTP client -->
+      <groupId>com.evernote</groupId>
+      <artifactId>evernote-api</artifactId>
+      <version>1.25.1</version>
+    </dependency>
+    <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.10.1</version>
