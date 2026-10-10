@@ -6,6 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Base64;
 import javax.imageio.ImageIO;
 import org.apache.commons.fileupload2.core.FileItem;
@@ -25,23 +26,27 @@ public class ImageParameterValue extends FileParameterValue {
         super(name, file, filename);
     }
 
+    /**
+     * Returns the uploaded image, rotated upright according to its EXIF orientation, or {@code null} if no file
+     * was uploaded.
+     */
     public BufferedImage getImageData() throws IOException {
-        BufferedImage originalImage = null;
+        byte[] data = null;
 
         if (getFile2() != null) {
             try (InputStream is = getFile2().getInputStream()) {
-                originalImage = ImageIO.read(is);
+                data = is.readAllBytes();
             }
         }
 
-        if (originalImage == null && getLocation() != null) {
+        if ((data == null || data.length == 0) && getLocation() != null) {
             File diskFile = new File(getLocation());
             if (diskFile.exists()) {
-                originalImage = ImageIO.read(diskFile);
+                data = Files.readAllBytes(diskFile.toPath());
             }
         }
 
-        return originalImage;
+        return data == null || data.length == 0 ? null : ImagePreprocessor.decode(data);
     }
 
     public byte[] getImageDataPNG() throws IOException {

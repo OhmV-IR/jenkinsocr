@@ -16,6 +16,7 @@ import io.ohmvir.plugins.jenkinsaisynapse.api.input.TemperatureContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.ModelResponse;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.OutputTextContent;
 import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -90,7 +91,16 @@ public class RecognizeTextBuildStep extends Step {
                             NoteOCRSettings.get().getRootPageId(),
                             SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null)));
             request.addInput(new InputTextContent(prompt));
-            request.addInput(new InputImageContent(paramValue.getImageData()));
+            BufferedImage image = paramValue.getImageData();
+            if (image == null) {
+                throw new Exception("No image was uploaded for parameter " + parameterName);
+            }
+            BufferedImage modelImage =
+                    ImagePreprocessor.fitForModel(image, NoteOCRSettings.get().getMaxImageDimension());
+            listener.getLogger()
+                    .println("Prepared image: " + image.getWidth() + "x" + image.getHeight() + " -> "
+                            + modelImage.getWidth() + "x" + modelImage.getHeight());
+            request.addInput(new InputImageContent(modelImage));
             request.addInput(new TemperatureContent(NoteOCRSettings.get().getTemperature()));
             request.requestOutputType(OutputTextContent.class);
             listener.getLogger().println("Created request, now executing...");

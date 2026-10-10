@@ -32,6 +32,8 @@ public class NoteOCRSettings extends GlobalConfiguration {
     private @Getter @Setter(onMethod_ = {@DataBoundSetter}) double temperature = 0.1;
     private @Getter @Setter(onMethod_ = {@DataBoundSetter}) String notionApiTokenCredentialId = "";
     private @Getter @Setter(onMethod_ = {@DataBoundSetter}) String rootPageId = "";
+    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) int maxImageDimension =
+            ImagePreprocessor.DEFAULT_MAX_DIMENSION;
 
     public NoteOCRSettings() {
         load();
@@ -86,6 +88,23 @@ public class NoteOCRSettings extends GlobalConfiguration {
             return FormValidation.ok();
         } catch (NumberFormatException e) {
             return FormValidation.error("Must be a valid decimal number");
+        }
+    }
+
+    @POST
+    public FormValidation doCheckMaxImageDimension(@QueryParameter String value) {
+        if (value == null || value.isBlank()) {
+            return FormValidation.error("Max image dimension is required");
+        }
+        try {
+            int dimension = Integer.parseInt(value.trim());
+            if (dimension < 1 || dimension > ImagePreprocessor.MAX_DIMENSION_LIMIT) {
+                return FormValidation.error(
+                        "Max image dimension should be between 1 and " + ImagePreprocessor.MAX_DIMENSION_LIMIT + ".");
+            }
+            return FormValidation.ok();
+        } catch (NumberFormatException e) {
+            return FormValidation.error("Must be a whole number of pixels");
         }
     }
 
