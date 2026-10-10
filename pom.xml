@@ -52,6 +52,10 @@
     <ban-junit4-imports.skip>false</ban-junit4-imports.skip>
     <ban-commons-lang-2.skip>false</ban-commons-lang-2.skip>
     <hpi.strictBundledArtifacts>false</hpi.strictBundledArtifacts>
+
+    <!-- Used by the parent POM's frontend build (activated by .mvn_exec_node) to bundle heic-to -->
+    <node.version>22.22.0</node.version>
+    <npm.version>10.9.4</npm.version>
   </properties>
 
   <dependencyManagement>
@@ -69,6 +73,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>com.drewnoakes</groupId>
+      <artifactId>metadata-extractor</artifactId>
+      <version>2.21.0</version>
+    </dependency>
+    <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.10.1</version>
@@ -85,6 +94,11 @@
       <version>1.14</version>
       <type>jar</type>
       <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>net.coobird</groupId>
+      <artifactId>thumbnailator</artifactId>
+      <version>0.4.21</version>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>

@@ -4,31 +4,18 @@
     <f:entry title="${it.name}" description="${it.description}">
         <div name="parameter" class="jenkins-file-parameter">
             <input type="hidden" name="name" value="${it.name}" />
-            <input type="file" name="${it.name}" accept="image/*" capture="environment" class="jenkins-input" onchange="previewImage(this, '${it.name}-preview')" />
+            <!-- .heic/.heif are listed explicitly because some desktop file pickers leave them out of image/* -->
+            <input type="file" name="${it.name}" accept="image/*,.heic,.heif" capture="environment"
+                   class="jenkins-input" data-jenkinsocr-image-input="true" />
+            <div class="jenkinsocr-image-status" style="margin-top: 10px;" hidden="hidden" />
             <div style="margin-top: 10px;">
-                <img id="${it.name}-preview"
+                <img class="jenkinsocr-image-preview"
                      src=""
                      alt="Image Preview"
                      style="max-width: 250px; max-height: 250px; display: none; border: 1px solid var(--border-color); border-radius: 6px;" />
             </div>
-
-            <!-- Preview JavaScript -->
-            <script>
-                function previewImage(input, previewId) {
-                    const preview = document.getElementById(previewId);
-                    if (input.files &amp;&amp; input.files[0]) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            preview.src = e.target.result;
-                            preview.style.display = 'block';
-                        }
-                        reader.readAsDataURL(input.files[0]);
-                    } else {
-                        preview.src = '';
-                        preview.style.display = 'none';
-                    }
-                }
-            </script>
+            <!-- Converts HEIC photos to JPEG before upload and shows the preview -->
+            <script type="module" src="${resURL}/plugin/jenkinsocr/js/image-parameter.js" />
         </div>
     </f:entry>
 </j:jelly>
