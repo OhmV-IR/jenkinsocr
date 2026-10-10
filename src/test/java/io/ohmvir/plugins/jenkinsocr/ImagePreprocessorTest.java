@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
@@ -57,11 +59,24 @@ class ImagePreprocessorTest {
     }
 
     @Test
-    void explainsThatHeicIsUnsupportedOnTheServer() throws IOException {
-        byte[] heic = resource("photo.heic");
+    void decodesHeicUprightWithoutRotatingTwice() throws IOException {
+        assumeTrue(ImagePreprocessor.isHeifSupported(), "libheif is not installed");
+        // Stored as 40x20 with the left half red, with both a HEIF rotation and EXIF orientation 6, like an iPhone.
+        BufferedImage image = ImagePreprocessor.decode(resource("iphone-portrait.heic"));
+
+        assertEquals(20, image.getWidth());
+        assertEquals(40, image.getHeight());
+        assertTrue(isMostlyRed(image.getRGB(10, 5)), "top should be the stored left (red) half");
+        assertTrue(isMostlyBlue(image.getRGB(10, 35)), "bottom should be the stored right (blue) half");
+    }
+
+    @Test
+    void explainsHowToEnableHeicWhenLibheifIsMissing() throws IOException {
+        assumeFalse(ImagePreprocessor.isHeifSupported(), "libheif is installed");
+        byte[] heic = resource("iphone-portrait.heic");
 
         IOException e = assertThrows(IOException.class, () -> ImagePreprocessor.decode(heic));
-        assertTrue(e.getMessage().contains("HEIC"), e.getMessage());
+        assertTrue(e.getMessage().contains("libheif"), e.getMessage());
     }
 
     @Test

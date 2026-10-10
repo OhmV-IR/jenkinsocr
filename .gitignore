@@ -13,8 +13,3 @@ work
 .settings
 .classpath
 .project
-
-# Frontend build (see package.json)
-node
-node_modules
-src/main/webapp/js/vendor

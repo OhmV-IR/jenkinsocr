@@ -4,6 +4,20 @@
 
 TODO Describe what your plugin does here
 
+## Requirements
+
+- Jenkins running on **Java 25**.
+- To accept HEIC/HEIF photos (the iPhone default), **libheif** with its HEVC decoder must be installed on the
+  Jenkins controller, e.g. on Debian/Ubuntu:
+
+  ```sh
+  apt-get install libheif-dev libheif-plugin-libde265
+  ```
+
+  libheif is loaded through Java's foreign function API. Add `--enable-native-access=ALL-UNNAMED` to the
+  controller's JVM options to silence the native-access warning. Without libheif, JPEG/PNG photos still work and
+  HEIC uploads fail with an error explaining what to install.
+
 ## Getting started
 
 TODO Tell users how to configure your plugin here, include screenshots, pipeline examples and 

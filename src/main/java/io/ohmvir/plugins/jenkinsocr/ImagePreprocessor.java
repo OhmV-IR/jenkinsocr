@@ -7,6 +7,7 @@ import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
+import com.github.gotson.nightmonkeys.heif.imageio.plugins.HeifImageReaderSpi;
 import java.awt.image.BufferedImage;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -15,13 +16,14 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
+import javax.imageio.spi.IIORegistry;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.util.exif.ExifFilterUtils;
 import net.coobird.thumbnailator.util.exif.Orientation;
 
 /**
- * Turns an uploaded photo into an image the model can use: decoded, rotated upright according to its EXIF
- * orientation, and scaled down to fit provider limits.
+ * Turns an uploaded photo into an image the model can use: decoded (including HEIC, via libheif), rotated upright
+ * according to its orientation, and scaled down to fit provider limits.
  */
 public final class ImagePreprocessor {
     private static final Logger LOGGER = Logger.getLogger(ImagePreprocessor.class.getName());
@@ -40,23 +42,41 @@ public final class ImagePreprocessor {
 
     private static final int MAX_SHRINK_ATTEMPTS = 5;
 
+    static {
+        // Plugin jars aren't on the classpath ImageIO scans, so register the libheif-backed reader explicitly.
+        // It deregisters itself if libheif can't be loaded or the JVM is older than Java 22.
+        IIORegistry.getDefaultInstance().registerServiceProvider(new HeifImageReaderSpi());
+    }
+
     private ImagePreprocessor() {}
 
+    /** Whether HEIC/HEIF/AVIF photos can be decoded, i.e. libheif was found on this machine. */
+    public static boolean isHeifSupported() {
+        return ImageIO.getImageReadersByFormatName("heif").hasNext();
+    }
+
     /**
-     * Decodes an uploaded image and applies its EXIF orientation, so portrait phone photos come out upright.
+     * Decodes an uploaded image and rotates it upright, so portrait phone photos don't arrive sideways.
      *
      * @throws IOException if the data isn't an image format the server can decode
      */
     public static BufferedImage decode(byte[] data) throws IOException {
+        FileType type = FileTypeDetector.detectFileType(new BufferedInputStream(new ByteArrayInputStream(data)));
+        boolean decodedByLibheif = type == FileType.Heif || type == FileType.Avif;
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
         if (image == null) {
-            FileType type = FileTypeDetector.detectFileType(new BufferedInputStream(new ByteArrayInputStream(data)));
-            if (type == FileType.Heif) {
-                throw new IOException("HEIC/HEIF photos can't be decoded on the Jenkins server. Upload the photo "
-                        + "through the build form in a browser (it converts HEIC to JPEG automatically), or export "
-                        + "it as JPEG first.");
+            if (decodedByLibheif) {
+                throw new IOException(
+                        "Can't decode HEIC/HEIF/AVIF photos: libheif wasn't found on the Jenkins controller. "
+                                + "Install libheif with its HEVC decoder (e.g. apt-get install libheif-dev "
+                                + "libheif-plugin-libde265) and run Jenkins on Java 25.");
             }
             throw new IOException("Unsupported image format: " + type.getName());
+        }
+        if (decodedByLibheif) {
+            // libheif already applies the HEIF rotation and mirroring. iPhones also write an EXIF orientation that
+            // describes the same rotation, so applying it as well would turn the photo twice.
+            return image;
         }
 
         Orientation orientation = Orientation.typeOf(readExifOrientation(data));

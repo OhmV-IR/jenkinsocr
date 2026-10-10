@@ -13,7 +13,7 @@ pipeline {
                 axes {
                     axis {
                         name 'JDK_VERSION'
-                        values '21', '25'
+                        values '25'
                     }
                 }
 
