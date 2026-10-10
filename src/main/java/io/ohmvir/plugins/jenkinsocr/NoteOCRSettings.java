@@ -9,6 +9,8 @@ import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import io.ohmvir.plugins.jenkinsaisynapse.api.models.ModelData;
+import io.ohmvir.plugins.jenkinsaisynapse.configuration.ModelsManagementLink;
+import io.ohmvir.plugins.jenkinsaisynapse.configuration.models.ModelConfiguration;
 import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
 import java.util.Collections;
 import jenkins.model.GlobalConfiguration;
@@ -91,6 +93,8 @@ public class NoteOCRSettings extends GlobalConfiguration {
 
     @POST
     public FormValidation doCheckNotionApiTokenCredentialId(@QueryParameter String value) {
+        // Looking up the credential reveals whether it exists, so only administrators may ask
+        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
         if (value == null || value.isBlank()) {
             return FormValidation.error("Notion API token credential ID must not be blank");
         }
@@ -109,8 +113,20 @@ public class NoteOCRSettings extends GlobalConfiguration {
         return FormValidation.ok();
     }
 
-    public ListBoxModel doFillModelIdItems() {
-        return ModelData.getAllModelsListBox();
+    public ListBoxModel doFillModelIdItems(@QueryParameter String modelId) {
+        ListBoxModel items = new ListBoxModel();
+        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+            return items;
+        }
+        // Built from the configurations rather than ModelData.getAllModelsListBox(), which swaps the
+        // display name and value, so the saved value is the model ID that ModelData.get expects.
+        for (ModelConfiguration config : ModelsManagementLink.get().getModelConfigurations()) {
+            items.add(new ListBoxModel.Option(
+                    config.getModelIdDisplayName(),
+                    config.getModelId(),
+                    config.getModelId().equals(modelId)));
+        }
+        return items;
     }
 
     public ListBoxModel doFillNotionApiTokenCredentialIdItems(

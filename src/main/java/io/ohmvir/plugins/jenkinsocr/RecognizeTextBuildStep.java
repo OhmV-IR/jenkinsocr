@@ -1,11 +1,8 @@
 package io.ohmvir.plugins.jenkinsocr;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import hudson.AbortException;
 import hudson.Extension;
-import hudson.init.InitMilestone;
-import hudson.init.Initializer;
+import hudson.model.ParameterValue;
 import hudson.model.ParametersAction;
 import hudson.model.Run;
 import hudson.model.TaskListener;
@@ -13,18 +10,13 @@ import io.ohmvir.plugins.jenkinsaisynapse.api.input.InputImageContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.InputTextContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.ModelRequest;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.TemperatureContent;
+import io.ohmvir.plugins.jenkinsaisynapse.api.models.ModelData;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.ModelResponse;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.OutputTextContent;
 import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import lombok.Getter;
 import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.workflow.steps.*;
@@ -33,22 +25,6 @@ import org.kohsuke.stapler.DataBoundConstructor;
 
 public class RecognizeTextBuildStep extends Step {
     private @Getter final String parameterName;
-    private static final Map<FormulaOutputType, String> FORMULA_OUTPUT_TYPE_TO_PROMPT = new HashMap<>();
-
-    @Initializer(after = InitMilestone.PLUGINS_STARTED)
-    public static void loadPrompts() throws IOException {
-        for (FormulaOutputType type : FormulaOutputType.values()) {
-            try (InputStream is = RecognizeTextBuildStep.class.getResourceAsStream(
-                    "/prompts/" + type.name().toUpperCase() + ".md")) {
-                if (is == null) {
-                    Logger.getLogger(RecognizeTextBuildStep.class.getName())
-                            .log(Level.WARNING, "Could not find prompt file for " + type.name());
-                    continue;
-                }
-                FORMULA_OUTPUT_TYPE_TO_PROMPT.put(type, new String(is.readAllBytes(), StandardCharsets.UTF_8));
-            }
-        }
-    }
 
     @DataBoundConstructor
     public RecognizeTextBuildStep(String parameterName) {
@@ -61,6 +37,7 @@ public class RecognizeTextBuildStep extends Step {
     }
 
     private static class Execution extends SynchronousNonBlockingStepExecution<RecognizeTextOutput> {
+        private static final long serialVersionUID = 1L;
         private final String parameterName;
 
         protected Execution(@NonNull StepContext context, @NonNull String parameterName) {
@@ -75,29 +52,51 @@ public class RecognizeTextBuildStep extends Step {
             listener.getLogger().println("Scanning build parameters for image parameter: " + parameterName);
             ParametersAction paramsAction = run.getAction(ParametersAction.class);
             if (paramsAction == null) {
-                throw new Exception("No parameters action found in the build");
+                throw new AbortException("No parameters action found in the build");
             }
-            ImageParameterValue paramValue = (ImageParameterValue) paramsAction.getParameter(parameterName);
-            if (paramValue == null) {
-                throw new Exception("Parameter " + parameterName + " not found or was not an image parameter");
+            ParameterValue rawValue = paramsAction.getParameter(parameterName);
+            if (rawValue == null) {
+                throw new AbortException("Parameter " + parameterName + " not found");
             }
+            if (!(rawValue instanceof ImageParameterValue paramValue)) {
+                throw new AbortException("Parameter " + parameterName + " is not an image parameter");
+            }
+            BufferedImage image = paramValue.getImageData();
+            if (image == null) {
+                throw new AbortException("Parameter " + parameterName
+                        + " does not contain a readable image. The upload may be in an unsupported format,"
+                        + " or it was lost because Jenkins restarted after the build was queued.");
+            }
+
+            NoteOCRSettings settings = NoteOCRSettings.get();
+            ModelData model = settings.getModel();
+            if (model == null) {
+                throw new AbortException("Model '" + settings.getModelId()
+                        + "' is not available. Configure a model under Note OCR Settings.");
+            }
+            String apiToken = SecretsUtils.getSecretText(settings.getNotionApiTokenCredentialId(), null);
+            if (apiToken == null || apiToken.isBlank()) {
+                throw new AbortException("Notion API token credential '" + settings.getNotionApiTokenCredentialId()
+                        + "' could not be found. Configure it under Note OCR Settings.");
+            }
+
+            String dirTree;
+            try {
+                dirTree = new NotionClient(apiToken).getDirectoryTreeFormatted(settings.getRootPageId());
+            } catch (IOException | IllegalArgumentException e) {
+                throw new AbortException("Failed to read the Notion folder tree: " + e.getMessage());
+            }
+            String prompt = OcrPrompts.render(settings.getFormulaOutputType(), dirTree);
             ModelRequest request = new ModelRequest();
-            String prompt =
-                    FORMULA_OUTPUT_TYPE_TO_PROMPT.get(NoteOCRSettings.get().getFormulaOutputType());
-            prompt = prompt.replace(
-                    "${DIR_TREE}",
-                    NotionUploadStep.getDirectoryTreeFormatted(
-                            NoteOCRSettings.get().getRootPageId(),
-                            SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null)));
             request.addInput(new InputTextContent(prompt));
-            request.addInput(new InputImageContent(paramValue.getImageData()));
-            request.addInput(new TemperatureContent(NoteOCRSettings.get().getTemperature()));
+            request.addInput(new InputImageContent(image));
+            request.addInput(new TemperatureContent(settings.getTemperature()));
             request.requestOutputType(OutputTextContent.class);
             listener.getLogger().println("Created request, now executing...");
-            ModelResponse response = request.execute(NoteOCRSettings.get().getModel());
+            ModelResponse response = request.execute(model);
             listener.getLogger().println("Request finished!");
             if (response == null) {
-                throw new Exception("Model failed to produce a response");
+                throw new AbortException("Model failed to produce a response");
             }
             OutputTextContent outputText = response.getOutputs().stream()
                     .filter(modelOutput -> modelOutput instanceof OutputTextContent)
@@ -105,24 +104,14 @@ public class RecognizeTextBuildStep extends Step {
                     .findFirst()
                     .orElse(null);
             if (outputText == null) {
-                throw new Exception("Model didn't produce output text");
+                throw new AbortException("Model didn't produce output text");
             }
             listener.getLogger().println("Model outputted text: " + outputText.getText());
-            JsonObject output =
-                    new Gson().fromJson(outputText.getText(), JsonElement.class).getAsJsonObject();
-            if (output.get("text").getAsString() == null) {
-                throw new Exception("Model didn't produce text field in the json");
+            try {
+                return OcrResponseParser.parse(outputText.getText());
+            } catch (IllegalArgumentException e) {
+                throw new AbortException(e.getMessage());
             }
-            if (output.get("title").getAsString() == null) {
-                throw new Exception("Model didn't produce title in the json");
-            }
-            if (output.get("path").getAsString() == null) {
-                throw new Exception("Model didn't produce path in the json");
-            }
-            return new RecognizeTextOutput(
-                    output.get("text").getAsString(),
-                    output.get("path").getAsString(),
-                    output.get("title").getAsString());
         }
     }
 
@@ -131,7 +120,7 @@ public class RecognizeTextBuildStep extends Step {
     public static class DescriptorImpl extends StepDescriptor {
         @Override
         public Set<? extends Class<?>> getRequiredContext() {
-            return Collections.singleton(Run.class);
+            return Set.of(Run.class, TaskListener.class);
         }
 
         @Override

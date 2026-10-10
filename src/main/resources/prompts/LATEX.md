@@ -7,7 +7,7 @@ ${DIR_TREE}
 ### Task Instructions
 
 1. Categorization & Path Selection:
-    - Analyze the note's subject matter and choose the most appropriate existing path from ${DIR_TREE}.
+    - Analyze the note's subject matter and choose the most appropriate existing path from the hierarchy above.
     - If none of the existing paths fit, create a new logical path using forward slashes (e.g., "Engineering/Circuit Analysis" or "Math/Linear Algebra").
 
 2. Title Selection:
@@ -32,6 +32,7 @@ ${DIR_TREE}
 
 ### Required Output Format
 Return ONLY a valid JSON object. Do not include conversational text or explanations.
+Escape the content so the JSON stays valid: write every backslash as `\\` and every line break as `\n`.
 
 {
 "title": "<Concise note title>",
