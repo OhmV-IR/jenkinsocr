@@ -25,13 +25,17 @@ pipeline {
             }
         }
 
-        stage('Sync to Notion') {
+        stage('Upload note') {
             steps {
-                notionUpload(
-                    notionText: env.EXTRACTED_TEXT,
-                    pageTitle: env.PAGE_TITLE,
-                    pagePath: env.PAGE_PATH
-                )
+                script {
+                    // Uploads to the note provider configured in Manage Jenkins » System » Note OCR Settings
+                    def location = uploadNote(
+                        text: env.EXTRACTED_TEXT,
+                        title: env.PAGE_TITLE,
+                        path: env.PAGE_PATH
+                    )
+                    echo "Note stored at ${location}"
+                }
             }
         }
     }
