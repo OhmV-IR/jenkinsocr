@@ -3,6 +3,7 @@ package io.ohmvir.plugins.jenkinsocr.notes.notion;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import lombok.Getter;
 
 /**
  * A request to the Notion API was answered with an error.
@@ -10,24 +11,18 @@ import java.io.IOException;
 public class NotionApiException extends IOException {
     private static final long serialVersionUID = 1L;
 
+    /** The HTTP status code of the response. */
+    @Getter
     private final int statusCode;
+
+    /** Notion's error code, such as {@code validation_error}, or {@code null} if the response had none. */
+    @Getter
     private final String errorCode;
 
     public NotionApiException(int statusCode, String errorCode, String message) {
         super(message);
         this.statusCode = statusCode;
         this.errorCode = errorCode;
-    }
-
-    public int getStatusCode() {
-        return statusCode;
-    }
-
-    /**
-     * Notion's error code, such as {@code validation_error}, or {@code null} if the response had none.
-     */
-    public String getErrorCode() {
-        return errorCode;
     }
 
     static NotionApiException fromResponse(int statusCode, String body, ObjectMapper mapper) {

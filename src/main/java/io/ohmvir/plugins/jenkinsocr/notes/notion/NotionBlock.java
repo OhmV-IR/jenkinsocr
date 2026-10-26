@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
+import lombok.Getter;
 
 /**
  * A Notion block ready to be appended to a page. Its children are kept apart from its content so that
@@ -11,8 +12,14 @@ import java.util.List;
  * Notion's request limits.
  */
 public final class NotionBlock {
+    /** The Notion block type, e.g. {@code "paragraph"}. */
+    @Getter
     private final String type;
+
     private final ObjectNode content;
+
+    /** The nested blocks. */
+    @Getter
     private final List<NotionBlock> children;
 
     /**
@@ -24,14 +31,6 @@ public final class NotionBlock {
         this.type = type;
         this.content = content.deepCopy();
         this.children = List.copyOf(children);
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public List<NotionBlock> getChildren() {
-        return children;
     }
 
     /**

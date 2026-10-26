@@ -8,7 +8,6 @@ import hudson.util.ListBoxModel;
 import io.ohmvir.plugins.jenkinsaisynapse.api.models.ModelData;
 import io.ohmvir.plugins.jenkinsocr.notes.NoteProvider;
 import io.ohmvir.plugins.jenkinsocr.notes.NoteProviderDescriptor;
-import io.ohmvir.plugins.jenkinsocr.notes.notion.NotionNoteProvider;
 import jenkins.model.GlobalConfiguration;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,31 +26,8 @@ public class NoteOCRSettings extends GlobalConfiguration {
     private @Getter @Setter(onMethod_ = {@DataBoundSetter}) double temperature = 0.1;
     private @Getter @Setter(onMethod_ = {@DataBoundSetter}) NoteProvider noteProvider;
 
-    /** @deprecated replaced by {@link NotionNoteProvider#getCredentialsId()}; only read from old configurations */
-    @Deprecated
-    private String notionApiTokenCredentialId;
-
-    /** @deprecated replaced by {@link NotionNoteProvider#getRootPageId()}; only read from old configurations */
-    @Deprecated
-    private String rootPageId;
-
     public NoteOCRSettings() {
         load();
-        migrateLegacyNotionSettings();
-    }
-
-    /**
-     * Before note providers existed, the Notion settings were stored directly in this configuration.
-     */
-    @SuppressWarnings("deprecation")
-    private void migrateLegacyNotionSettings() {
-        boolean hasLegacySettings = (notionApiTokenCredentialId != null && !notionApiTokenCredentialId.isBlank())
-                || (rootPageId != null && !rootPageId.isBlank());
-        if (noteProvider == null && hasLegacySettings) {
-            noteProvider = new NotionNoteProvider(notionApiTokenCredentialId, rootPageId);
-        }
-        notionApiTokenCredentialId = null;
-        rootPageId = null;
     }
 
     @Override

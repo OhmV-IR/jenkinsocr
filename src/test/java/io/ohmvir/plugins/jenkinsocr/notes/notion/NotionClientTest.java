@@ -110,6 +110,44 @@ class NotionClientTest {
         assertEquals(Optional.empty(), client.findChildPage("root", "Mat"));
     }
 
+    /** Answers "list children" requests from a map of page ID to its child pages (ID and title pairs). */
+    private static Response children(Request request, Map<String, List<String>> tree) {
+        String parent = request.path().replaceFirst("^/v1/blocks/([^/]+)/children.*$", "$1");
+        StringBuilder results = new StringBuilder();
+        for (String child : tree.getOrDefault(parent, List.of())) {
+            results.append(results.isEmpty() ? "" : ",").append(childPage(child, child.replace('_', ' ')));
+        }
+        return Response.json("{\"results\":[" + results + "],\"has_more\":false}");
+    }
+
+    @Test
+    void listsFoldersRecursivelyWithoutTheNotesThemselves() throws Exception {
+        Map<String, List<String>> tree = Map.of(
+                "root", List.of("Math", "Loose_note", "Physics"),
+                "Math", List.of("Algebra", "Math_note"),
+                "Algebra", List.of("Groups"),
+                "Groups", List.of("Groups_note"),
+                "Physics", List.of("Physics_note"));
+        handler = request -> children(request, tree);
+        assertEquals(
+                List.of("Math", "Math/Algebra", "Math/Algebra/Groups", "Physics"), client.listFolderPaths("root", 10));
+        requests.clear();
+        assertEquals(List.of("Math", "Math/Algebra", "Physics"), client.listFolderPaths("root", 2));
+        assertTrue(
+                requests.stream().noneMatch(r -> r.path().startsWith("/v1/blocks/Groups/")),
+                "pages deeper than the limit are not fetched");
+        assertEquals(List.of(), client.listFolderPaths("root", 0));
+    }
+
+    @Test
+    void findOrCreateChildPageReusesExistingPages() throws Exception {
+        handler = request -> request.method().equals("POST")
+                ? Response.json("{\"id\":\"created\"}")
+                : Response.json("{\"results\":[" + childPage("existing", "Math") + "],\"has_more\":false}");
+        assertEquals(new NotionClient.ResolvedPage("existing", false), client.findOrCreateChildPage("root", "math"));
+        assertEquals(new NotionClient.ResolvedPage("created", true), client.findOrCreateChildPage("root", "Physics"));
+    }
+
     @Test
     void createsPagesBelowTheirParent() throws Exception {
         handler = request -> Response.json("{\"object\":\"page\",\"id\":\"new-page\"}");

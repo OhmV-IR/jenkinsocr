@@ -16,11 +16,12 @@ import io.ohmvir.plugins.jenkinsocr.notes.content.NoteDocument;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import jenkins.model.Jenkins;
+import lombok.Getter;
 import org.jenkinsci.Symbol;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.verb.POST;
 
@@ -29,11 +30,23 @@ import org.kohsuke.stapler.verb.POST;
  * itself is a page whose content is made of native Notion blocks, with formulas as Notion equations.
  */
 public class NotionNoteProvider extends NoteProvider {
-    /** Guards against unexpectedly deep (or cyclic) page hierarchies when listing folders. */
-    private static final int MAX_FOLDER_DEPTH = 10;
+    /** The default number of folder levels listed for the OCR model. */
+    public static final int DEFAULT_MAX_FOLDER_DEPTH = 10;
 
+    /** The ID of the "Secret text" credential holding the Notion integration token. */
+    @Getter
     private final String credentialsId;
+
+    /** The ID or URL of the page below which notes are stored. */
+    @Getter
     private final String rootPageId;
+
+    /**
+     * How many folder levels below the root page are listed for the OCR model. Also guards against very deep
+     * page hierarchies, since listing takes one request per page.
+     */
+    @Getter
+    private int maxFolderDepth = DEFAULT_MAX_FOLDER_DEPTH;
 
     @DataBoundConstructor
     public NotionNoteProvider(String credentialsId, String rootPageId) {
@@ -41,42 +54,24 @@ public class NotionNoteProvider extends NoteProvider {
         this.rootPageId = rootPageId;
     }
 
-    /**
-     * The ID of the "Secret text" credential holding the Notion integration token.
-     */
-    public String getCredentialsId() {
-        return credentialsId;
+    @DataBoundSetter
+    public void setMaxFolderDepth(int maxFolderDepth) {
+        this.maxFolderDepth = maxFolderDepth > 0 ? maxFolderDepth : DEFAULT_MAX_FOLDER_DEPTH;
     }
 
     /**
-     * The ID or URL of the page below which notes are stored.
+     * XStream does not run field initializers, so a configuration without {@link #maxFolderDepth} loads it as 0.
      */
-    public String getRootPageId() {
-        return rootPageId;
+    protected Object readResolve() {
+        if (maxFolderDepth <= 0) {
+            maxFolderDepth = DEFAULT_MAX_FOLDER_DEPTH;
+        }
+        return this;
     }
 
     @Override
     public List<String> listFolderPaths(@NonNull TaskListener listener) throws IOException, InterruptedException {
-        List<String> paths = new ArrayList<>();
-        collectFolderPaths(client(), rootPage(), "", 0, paths);
-        return paths;
-    }
-
-    private static void collectFolderPaths(
-            NotionClient client, String parentId, String parentPath, int depth, List<String> paths)
-            throws IOException, InterruptedException {
-        if (depth >= MAX_FOLDER_DEPTH) {
-            return;
-        }
-        for (NotionClient.ChildPage page : client.listChildPages(parentId)) {
-            String title = page.title().strip();
-            if (title.isEmpty()) {
-                continue;
-            }
-            String path = parentPath.isEmpty() ? title : parentPath + "/" + title;
-            paths.add(path);
-            collectFolderPaths(client, page.id(), path, depth + 1, paths);
-        }
+        return client().listFolderPaths(rootPage(), maxFolderDepth);
     }
 
     @Override
@@ -85,39 +80,29 @@ public class NotionNoteProvider extends NoteProvider {
         NotionClient client = client();
         String parentId = rootPage();
         for (String folder : note.pathSegments()) {
-            parentId = findOrCreatePage(client, parentId, folder, listener);
+            NotionClient.ResolvedPage page = client.findOrCreateChildPage(parentId, folder);
+            if (page.created()) {
+                listener.getLogger().println("[Note OCR] Created the Notion folder page '" + folder + "'");
+            }
+            parentId = page.id();
         }
 
-        Optional<String> existing = client.findChildPage(parentId, note.title());
-        String pageId;
-        if (existing.isPresent()) {
-            pageId = existing.get();
-            listener.getLogger().println("[Note OCR] Appending to the existing Notion page '" + note.title() + "'");
-        } else {
-            pageId = client.createPage(parentId, note.title());
-            listener.getLogger().println("[Note OCR] Created the Notion page '" + note.title() + "'");
-        }
+        NotionClient.ResolvedPage page = client.findOrCreateChildPage(parentId, note.title());
+        boolean appended = !page.created();
+        listener.getLogger()
+                .println("[Note OCR] " + (appended ? "Appending to the existing" : "Created the") + " Notion page '"
+                        + note.title() + "'");
 
         NoteDocument document = parse(note, listener);
         NotionBlockRenderer renderer = new NotionBlockRenderer();
         List<NotionBlock> blocks = new ArrayList<>();
-        if (existing.isPresent() && !document.blocks().isEmpty()) {
+        if (appended && !document.blocks().isEmpty()) {
             blocks.add(new NotionBlock("divider", JsonNodeFactory.instance.objectNode(), List.of()));
         }
         blocks.addAll(renderer.render(document));
         renderer.getWarnings().forEach(warning -> warn(listener, warning));
-        client.appendBlocks(pageId, blocks);
-        return new NoteUploadResult(NotionIds.pageUrl(pageId), existing.isPresent());
-    }
-
-    private static String findOrCreatePage(NotionClient client, String parentId, String title, TaskListener listener)
-            throws IOException, InterruptedException {
-        Optional<String> existing = client.findChildPage(parentId, title);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-        listener.getLogger().println("[Note OCR] Creating the Notion folder page '" + title + "'");
-        return client.createPage(parentId, title);
+        client.appendBlocks(page.id(), blocks);
+        return new NoteUploadResult(NotionIds.pageUrl(page.id()), appended);
     }
 
     private NotionClient client() throws AbortException {
@@ -157,6 +142,14 @@ public class NotionNoteProvider extends NoteProvider {
         @POST
         public FormValidation doCheckCredentialsId(@QueryParameter String value) {
             return checkSecretTextCredentials(value, "Notion integration token");
+        }
+
+        @POST
+        public FormValidation doCheckMaxFolderDepth(@QueryParameter String value) {
+            if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                return FormValidation.ok();
+            }
+            return FormValidation.validatePositiveInteger(value);
         }
 
         @POST

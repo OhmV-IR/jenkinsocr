@@ -47,6 +47,13 @@ public class NotionClient {
     public record ChildPage(String id, String title) {}
 
     /**
+     * A page found or created by {@link #findOrCreateChildPage}.
+     *
+     * @param created {@code true} if the page did not exist and was created
+     */
+    public record ResolvedPage(String id, boolean created) {}
+
+    /**
      * Waits between retries; replaceable in tests.
      */
     @FunctionalInterface
@@ -110,6 +117,53 @@ public class NotionClient {
                         .filter(page -> page.title().strip().equalsIgnoreCase(wanted))
                         .findFirst())
                 .map(ChildPage::id);
+    }
+
+    /**
+     * Finds the page directly below {@code parentId} with the given title (see {@link #findChildPage}), or creates
+     * it if there is none.
+     */
+    public ResolvedPage findOrCreateChildPage(String parentId, String title) throws IOException, InterruptedException {
+        Optional<String> existing = findChildPage(parentId, title);
+        if (existing.isPresent()) {
+            return new ResolvedPage(existing.get(), false);
+        }
+        return new ResolvedPage(createPage(parentId, title), true);
+    }
+
+    /**
+     * Lists the folders below a root page, recursively, as {@code /}-separated paths with parents before their
+     * children. A page is a folder if it has sub-pages; pages without any, which are the notes themselves, are not
+     * listed. Untitled pages are skipped.
+     *
+     * @param maxDepth the number of folder levels to list
+     */
+    public List<String> listFolderPaths(String rootPageId, int maxDepth) throws IOException, InterruptedException {
+        List<String> paths = new ArrayList<>();
+        if (maxDepth > 0) {
+            collectFolderPaths(listChildPages(rootPageId), "", 1, maxDepth, paths);
+        }
+        return paths;
+    }
+
+    private void collectFolderPaths(
+            List<ChildPage> pages, String parentPath, int depth, int maxDepth, List<String> paths)
+            throws IOException, InterruptedException {
+        for (ChildPage page : pages) {
+            String title = page.title().strip();
+            if (title.isEmpty()) {
+                continue;
+            }
+            List<ChildPage> children = listChildPages(page.id());
+            if (children.isEmpty()) {
+                continue;
+            }
+            String path = parentPath.isEmpty() ? title : parentPath + "/" + title;
+            paths.add(path);
+            if (depth < maxDepth) {
+                collectFolderPaths(children, path, depth + 1, maxDepth, paths);
+            }
+        }
     }
 
     /**

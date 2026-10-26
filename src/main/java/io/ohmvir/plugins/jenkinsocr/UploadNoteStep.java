@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Set;
+import lombok.Getter;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -29,27 +30,24 @@ import org.kohsuke.stapler.DataBoundSetter;
  * </pre>
  */
 public class UploadNoteStep extends Step {
+    /** The content of the note. */
+    @Getter
     private final String text;
+
+    /** The title of the note. */
+    @Getter
     private final String title;
+
+    /** The folder to store the note in, with segments separated by {@code /}. */
+    @Getter
     private String path = "";
+
     private FormulaOutputType formulaOutputType;
 
     @DataBoundConstructor
     public UploadNoteStep(String text, String title) {
         this.text = text;
         this.title = title;
-    }
-
-    public String getText() {
-        return text;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getPath() {
-        return path;
     }
 
     @DataBoundSetter
@@ -90,7 +88,7 @@ public class UploadNoteStep extends Step {
     /**
      * Uploads a note to the configured note provider, reporting the outcome in the build log.
      */
-    static NoteUploadResult upload(
+    private static NoteUploadResult upload(
             String text, String title, String path, FormulaOutputType format, TaskListener listener)
             throws IOException, InterruptedException {
         NoteOCRSettings settings = NoteOCRSettings.get();
