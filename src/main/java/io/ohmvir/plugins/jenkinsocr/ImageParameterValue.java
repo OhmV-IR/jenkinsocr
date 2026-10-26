@@ -11,6 +11,8 @@ import java.io.InputStream;
 import java.util.Base64;
 import java.util.Objects;
 import javax.imageio.ImageIO;
+import lombok.AccessLevel;
+import lombok.Getter;
 import org.apache.commons.fileupload2.core.FileItem;
 import org.apache.commons.io.FilenameUtils;
 import org.kohsuke.stapler.export.Exported;
@@ -25,9 +27,11 @@ public class ImageParameterValue extends ParameterValue {
 
     private static final long serialVersionUID = 1L;
 
+    @Getter(onMethod_ = {@Exported})
     private final String originalFileName;
 
     /** Id of the stored upload in {@link ImageUploadStorage}. */
+    @Getter(AccessLevel.PACKAGE)
     private final String uploadId;
 
     public ImageParameterValue(String name, FileItem file) throws IOException {
@@ -40,15 +44,6 @@ public class ImageParameterValue extends ParameterValue {
         try (InputStream is = file.getInputStream()) {
             this.uploadId = ImageUploadStorage.store(is);
         }
-    }
-
-    @Exported
-    public String getOriginalFileName() {
-        return originalFileName;
-    }
-
-    String getUploadId() {
-        return uploadId;
     }
 
     /** @return whether the uploaded image is still stored, i.e. the build that received it has not finished yet */
