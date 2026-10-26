@@ -80,14 +80,15 @@ class ObsidianVaultTest {
         Files.writeString(vault.resolve("Math/note.md"), "");
         assertEquals(
                 List.of("biology", "Math", "Math/Algebra"),
-                new ObsidianVault.ListFolders().invoke(vault.toFile(), null));
+                new ObsidianVault.ListFolders(10).invoke(vault.toFile(), null));
+        assertEquals(List.of("biology", "Math"), new ObsidianVault.ListFolders(1).invoke(vault.toFile(), null));
     }
 
     @Test
     void aMissingVaultIsAnError() {
         IOException e = assertThrows(
                 IOException.class,
-                () -> new ObsidianVault.ListFolders()
+                () -> new ObsidianVault.ListFolders(10)
                         .invoke(vault.resolve("missing").toFile(), null));
         assertTrue(e.getMessage().contains("does not exist"));
     }

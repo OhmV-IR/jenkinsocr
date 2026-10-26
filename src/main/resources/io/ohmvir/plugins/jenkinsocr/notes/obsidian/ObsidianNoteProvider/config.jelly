@@ -7,4 +7,9 @@
     <f:entry title="${%Node}" field="nodeName">
         <f:select />
     </f:entry>
+    <f:advanced>
+        <f:entry title="${%Maximum Folder Depth}" field="maxFolderDepth">
+            <f:number default="10" min="1" />
+        </f:entry>
+    </f:advanced>
 </j:jelly>

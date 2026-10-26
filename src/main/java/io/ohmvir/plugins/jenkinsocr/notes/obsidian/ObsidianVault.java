@@ -28,7 +28,6 @@ final class ObsidianVault {
     private static final Pattern WINDOWS_RESERVED_NAMES =
             Pattern.compile("(?i)^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\..*)?$");
     private static final int MAX_NAME_BYTES = 200;
-    private static final int MAX_FOLDER_DEPTH = 10;
     private static final String NOTE_EXTENSION = ".md";
 
     private ObsidianVault() {}
@@ -115,16 +114,26 @@ final class ObsidianVault {
     static final class ListFolders extends MasterToSlaveFileCallable<List<String>> {
         private static final long serialVersionUID = 1L;
 
+        private final int maxDepth;
+
+        /**
+         * @param maxDepth the number of folder levels to list
+         */
+        ListFolders(int maxDepth) {
+            this.maxDepth = maxDepth;
+        }
+
         @Override
         public List<String> invoke(File vault, VirtualChannel channel) throws IOException {
             Path root = requireVault(vault);
             List<String> paths = new ArrayList<>();
-            collect(root, "", 0, paths);
+            collect(root, "", 0, maxDepth, paths);
             return paths;
         }
 
-        private static void collect(Path folder, String prefix, int depth, List<String> paths) throws IOException {
-            if (depth >= MAX_FOLDER_DEPTH) {
+        private static void collect(Path folder, String prefix, int depth, int maxDepth, List<String> paths)
+                throws IOException {
+            if (depth >= maxDepth) {
                 return;
             }
             List<Path> children;
@@ -137,7 +146,7 @@ final class ObsidianVault {
             for (Path child : children) {
                 String path = prefix + name(child);
                 paths.add(path);
-                collect(child, path + "/", depth + 1, paths);
+                collect(child, path + "/", depth + 1, maxDepth, paths);
             }
         }
     }

@@ -15,6 +15,7 @@ import io.ohmvir.plugins.jenkinsocr.notes.NoteUploadResult;
 import java.io.IOException;
 import java.util.List;
 import jenkins.model.Jenkins;
+import lombok.Getter;
 import org.jenkinsci.Symbol;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -28,26 +29,24 @@ import org.kohsuke.stapler.verb.POST;
  * for example a computer running Obsidian, or one that syncs the vault with Obsidian Sync, Git or a file-sync tool.
  */
 public class ObsidianNoteProvider extends NoteProvider {
+    /** The default number of folder levels listed for the OCR model. */
+    public static final int DEFAULT_MAX_FOLDER_DEPTH = 10;
+
+    /** The absolute path of the vault folder (or of a folder inside the vault) on {@link #getNodeName()}. */
+    @Getter
     private final String vaultPath;
+
+    /** The name of the agent holding the vault, or an empty string for the built-in node (the controller). */
+    @Getter
     private String nodeName = "";
+
+    /** How many folder levels of the vault are listed for the OCR model. */
+    @Getter
+    private int maxFolderDepth = DEFAULT_MAX_FOLDER_DEPTH;
 
     @DataBoundConstructor
     public ObsidianNoteProvider(String vaultPath) {
         this.vaultPath = vaultPath == null ? "" : vaultPath.strip();
-    }
-
-    /**
-     * The absolute path of the vault folder (or of a folder inside the vault) on {@link #getNodeName()}.
-     */
-    public String getVaultPath() {
-        return vaultPath;
-    }
-
-    /**
-     * The name of the agent holding the vault, or an empty string for the built-in node (the controller).
-     */
-    public String getNodeName() {
-        return nodeName;
     }
 
     @DataBoundSetter
@@ -55,9 +54,24 @@ public class ObsidianNoteProvider extends NoteProvider {
         this.nodeName = nodeName == null ? "" : nodeName.strip();
     }
 
+    @DataBoundSetter
+    public void setMaxFolderDepth(int maxFolderDepth) {
+        this.maxFolderDepth = maxFolderDepth > 0 ? maxFolderDepth : DEFAULT_MAX_FOLDER_DEPTH;
+    }
+
+    /**
+     * XStream does not run field initializers, so a configuration without {@link #maxFolderDepth} loads it as 0.
+     */
+    protected Object readResolve() {
+        if (maxFolderDepth <= 0) {
+            maxFolderDepth = DEFAULT_MAX_FOLDER_DEPTH;
+        }
+        return this;
+    }
+
     @Override
     public List<String> listFolderPaths(@NonNull TaskListener listener) throws IOException, InterruptedException {
-        return vault().act(new ObsidianVault.ListFolders());
+        return vault().act(new ObsidianVault.ListFolders(maxFolderDepth));
     }
 
     @Override
@@ -117,6 +131,14 @@ public class ObsidianNoteProvider extends NoteProvider {
                 items.add(node.getNodeName());
             }
             return items;
+        }
+
+        @POST
+        public FormValidation doCheckMaxFolderDepth(@QueryParameter String value) {
+            if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+                return FormValidation.ok();
+            }
+            return FormValidation.validatePositiveInteger(value);
         }
 
         @POST

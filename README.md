@@ -85,6 +85,8 @@ with MathJax. LaTeX output is converted to Markdown, plain text is escaped so th
 Titles and folder names are made safe for every file system (characters such as `:`, `?`, `#` or `/` are replaced);
 when that changes a title, the original is kept as an Obsidian alias. Hidden folders such as `.obsidian` are never
 listed or written to.
+The folder tree given to the OCR model goes **Maximum Folder Depth** levels deep (an advanced setting, 10 by
+default).
 
 ### Adding a note provider
 
