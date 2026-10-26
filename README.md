@@ -40,7 +40,6 @@ pipeline {
 | --- | --- |
 | `recognizeText(parameterName:)` | Transcribes the image parameter and returns `text`, `title` and `path`. The model is given the existing folders of the note provider so that it can file the note in one of them. |
 | `uploadNote(text:, title:, path:, formulaOutputType:)` | Uploads the note to the configured note provider and returns its location (e.g. a URL). Missing folders are created; a note whose title already exists in its folder is appended to. `path` and `formulaOutputType` are optional. |
-| `notionUpload(notionText:, pageTitle:, pagePath:)` | Deprecated: use `uploadNote`. Kept for existing pipelines and requires Notion to be the configured provider. |
 
 ### Formula output types
 
@@ -67,8 +66,8 @@ per request).
 2. Share the root page with the integration (page menu » Connections).
 3. Select **Notion** as the note provider, then the credential and the root page's URL or ID.
 
-Existing configurations from before note providers were introduced are migrated to the Notion provider
-automatically.
+The folder tree given to the OCR model lists the pages that have sub-pages (the notes themselves are not listed),
+up to **Maximum Folder Depth** levels deep (an advanced setting, 10 by default).
 
 ### Adding a note provider
 
