@@ -93,7 +93,11 @@ public class RecognizeTextBuildStep extends Step {
 
             ModelRequest request = new ModelRequest();
             request.addInput(new InputTextContent(prompt));
-            request.addInput(new InputImageContent(image));
+            BufferedImage modelImage = ImagePreprocessor.fitForModel(image, settings.getMaxImageDimension());
+            listener.getLogger()
+                    .println("Prepared image: " + image.getWidth() + "x" + image.getHeight() + " -> "
+                            + modelImage.getWidth() + "x" + modelImage.getHeight());
+            request.addInput(new InputImageContent(modelImage));
             request.addInput(new TemperatureContent(settings.getTemperature()));
             request.requestOutputType(OutputTextContent.class);
             listener.getLogger().println("Created request, now executing...");

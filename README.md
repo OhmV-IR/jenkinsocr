@@ -7,6 +7,14 @@ a note is uploaded as a build parameter, transcribed by an AI model (through the
 [jenkins-ai-synapse](https://github.com/OhmV-IR/jenkins-ai-synapse) plugin), filed into a folder of your notes and
 uploaded with formatting and formulas rendered natively by the note application.
 
+## Requirements
+
+- Jenkins running on **Java 21** or newer.
+
+Photos can be JPEG, PNG or HEIC/HEIF (the iPhone default), with no extra software to install on the controller.
+They are rotated upright according to their orientation metadata and scaled down before being sent to the model;
+the size limit is the **Max Image Dimension** setting under Note OCR Settings.
+
 ## Getting started
 
 1. Configure a model in jenkins-ai-synapse.

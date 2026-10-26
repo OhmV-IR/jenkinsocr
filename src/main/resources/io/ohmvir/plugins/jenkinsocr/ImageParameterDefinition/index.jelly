@@ -5,7 +5,7 @@
     <f:entry title="${it.name}" description="${it.description}">
         <div name="parameter" class="jenkins-file-parameter">
             <input type="hidden" name="name" value="${it.name}" />
-            <input type="file" name="${it.name}" accept="image/*" capture="environment" class="jenkins-input jenkinsocr-image-input" />
+            <input type="file" name="${it.name}" accept="image/*,.heic,.heif" capture="environment" class="jenkins-input jenkinsocr-image-input" />
             <div style="margin-top: 10px;">
                 <img src=""
                      alt="Image Preview"

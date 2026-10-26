@@ -69,6 +69,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>com.drewnoakes</groupId>
+      <artifactId>metadata-extractor</artifactId>
+      <version>2.22.0</version>
+    </dependency>
+    <dependency>
       <!-- Generated Evernote (EDAM) Thrift client and types; requests are sent through Jenkins' HTTP client -->
       <groupId>com.evernote</groupId>
       <artifactId>evernote-api</artifactId>
@@ -78,6 +83,19 @@
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.10.1</version>
+    </dependency>
+    <dependency>
+      <!-- Pure-Java HEIC decoder, so iPhone photos work without native libraries on the controller -->
+      <groupId>io.github.valuya</groupId>
+      <artifactId>heic-decoder</artifactId>
+      <version>1.0.2</version>
+      <exclusions>
+        <!-- Annotations only; Jenkins core provides them -->
+        <exclusion>
+          <groupId>org.jspecify</groupId>
+          <artifactId>jspecify</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.ohmvir.plugins</groupId>
@@ -91,6 +109,11 @@
       <version>1.14</version>
       <type>jar</type>
       <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>net.coobird</groupId>
+      <artifactId>thumbnailator</artifactId>
+      <version>0.4.21</version>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci.plugins</groupId>

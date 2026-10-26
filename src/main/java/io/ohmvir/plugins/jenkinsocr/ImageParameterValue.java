@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Base64;
 import java.util.Objects;
 import javax.imageio.ImageIO;
@@ -63,6 +64,7 @@ public class ImageParameterValue extends ParameterValue {
         }
     }
 
+    /** Returns the uploaded image, decoded (including HEIC) and rotated upright according to its orientation. */
     public BufferedImage getImageData() throws IOException {
         if (!isAvailable()) {
             throw new IOException("The image uploaded for parameter " + getName()
@@ -70,7 +72,7 @@ public class ImageParameterValue extends ParameterValue {
                     + " finishes, so start a new build and upload the image again.");
         }
         File imageFile = ImageUploadStorage.getImageFile(uploadId);
-        BufferedImage image = ImageIO.read(imageFile);
+        BufferedImage image = ImagePreprocessor.decode(Files.readAllBytes(imageFile.toPath()));
         if (image == null) {
             throw new IOException("The file uploaded for parameter " + getName() + " (" + originalFileName
                     + ") is not in a supported image format");
