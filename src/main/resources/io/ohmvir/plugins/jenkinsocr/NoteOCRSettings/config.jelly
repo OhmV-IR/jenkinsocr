@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
     <f:section title="${%Note OCR Settings}">
         <f:entry title="${%Model ID}" field="modelId">
             <f:select />
@@ -15,11 +15,6 @@
                  description="${%Photos are scaled down so their longest edge is at most this many pixels before being sent to the model. Default: 1568.}">
             <f:number min="1" max="8000" default="1568" />
         </f:entry>
-        <f:entry title="${%Notion API Token Credential}" field="notionApiTokenCredentialId">
-            <c:select />
-        </f:entry>
-        <f:entry title="${%Root Page ID}" field="rootPageId">
-            <f:textbox />
-        </f:entry>
+        <f:dropdownDescriptorSelector field="noteProvider" title="${%Note Provider}" descriptors="${descriptor.noteProviderDescriptors}" />
     </f:section>
 </j:jelly>

@@ -71,25 +71,31 @@
     <dependency>
       <groupId>com.drewnoakes</groupId>
       <artifactId>metadata-extractor</artifactId>
-      <version>2.21.0</version>
+      <version>2.22.0</version>
     </dependency>
     <dependency>
-      <!-- HEIC/HEIF decoding through the system libheif; needs Java 22+ at runtime -->
-      <groupId>com.github.gotson.nightmonkeys</groupId>
-      <artifactId>imageio-heif</artifactId>
-      <version>1.1.0</version>
-      <exclusions>
-        <!-- Provided by Jenkins core -->
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-api</artifactId>
-        </exclusion>
-      </exclusions>
+      <!-- Generated Evernote (EDAM) Thrift client and types; requests are sent through Jenkins' HTTP client -->
+      <groupId>com.evernote</groupId>
+      <artifactId>evernote-api</artifactId>
+      <version>1.25.1</version>
     </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.10.1</version>
+    </dependency>
+    <dependency>
+      <!-- Pure-Java HEIC decoder, so iPhone photos work without native libraries on the controller -->
+      <groupId>io.github.valuya</groupId>
+      <artifactId>heic-decoder</artifactId>
+      <version>1.0.2</version>
+      <exclusions>
+        <!-- Annotations only; Jenkins core provides them -->
+        <exclusion>
+          <groupId>org.jspecify</groupId>
+          <artifactId>jspecify</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.ohmvir.plugins</groupId>
@@ -114,6 +120,10 @@
       <artifactId>jackson2-api</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.jenkins-ci.plugins</groupId>
+      <artifactId>script-security</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.jenkins-ci.plugins.workflow</groupId>
       <artifactId>workflow-api</artifactId>
     </dependency>
@@ -126,6 +136,21 @@
       <artifactId>lombok</artifactId>
       <version>1.18.48</version>
       <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-basic-steps</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-cps</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jenkins-ci.plugins.workflow</groupId>
+      <artifactId>workflow-job</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
@@ -157,14 +182,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <!--
-            Java 25 is required: HEIC decoding uses libheif through the foreign function API (Java 22+).
-            Set here rather than via maven.compiler.release, which maven-hpi-plugin resets to the Jenkins core level.
-          -->
-          <release>25</release>
-          <testRelease>25</testRelease>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

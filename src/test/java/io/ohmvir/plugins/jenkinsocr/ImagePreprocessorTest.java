@@ -1,11 +1,10 @@
 package io.ohmvir.plugins.jenkinsocr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.awt.Color;
 import java.awt.image.BufferedImage;
@@ -13,6 +12,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Random;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
@@ -60,7 +60,6 @@ class ImagePreprocessorTest {
 
     @Test
     void decodesHeicUprightWithoutRotatingTwice() throws IOException {
-        assumeTrue(ImagePreprocessor.isHeifSupported(), "libheif is not installed");
         // Stored as 40x20 with the left half red, with both a HEIF rotation and EXIF orientation 6, like an iPhone.
         BufferedImage image = ImagePreprocessor.decode(resource("iphone-portrait.heic"));
 
@@ -71,18 +70,17 @@ class ImagePreprocessorTest {
     }
 
     @Test
-    void explainsHowToEnableHeicWhenLibheifIsMissing() throws IOException {
-        assumeFalse(ImagePreprocessor.isHeifSupported(), "libheif is installed");
+    void reportsCorruptHeicAsAnIoError() throws IOException {
         byte[] heic = resource("iphone-portrait.heic");
+        // Keep the file header, so it is still recognised as HEIC, but cut off the compressed image data.
+        byte[] truncated = Arrays.copyOf(heic, heic.length / 2);
 
-        IOException e = assertThrows(IOException.class, () -> ImagePreprocessor.decode(heic));
-        assertTrue(e.getMessage().contains("libheif"), e.getMessage());
+        assertThrows(IOException.class, () -> ImagePreprocessor.decode(truncated));
     }
 
     @Test
-    void rejectsDataThatIsNotAnImage() {
-        assertThrows(
-                IOException.class, () -> ImagePreprocessor.decode("not an image".getBytes(StandardCharsets.UTF_8)));
+    void returnsNullForDataThatIsNotAnImage() throws IOException {
+        assertNull(ImagePreprocessor.decode("not an image".getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test

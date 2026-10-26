@@ -1,29 +1,30 @@
 package io.ohmvir.plugins.jenkinsocr;
 
-import com.drew.imaging.FileType;
-import com.drew.imaging.FileTypeDetector;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.MetadataException;
 import com.drew.metadata.exif.ExifIFD0Directory;
-import com.github.gotson.nightmonkeys.heif.imageio.plugins.HeifImageReaderSpi;
+import io.github.valuya.heic.HeicDecodingOptions;
+import io.github.valuya.heic.HeicFormatException;
+import io.github.valuya.heic.HeicImage;
+import io.github.valuya.heic.PixelRegion;
 import java.awt.image.BufferedImage;
-import java.io.BufferedInputStream;
+import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
-import javax.imageio.spi.IIORegistry;
 import net.coobird.thumbnailator.Thumbnails;
 import net.coobird.thumbnailator.util.exif.ExifFilterUtils;
 import net.coobird.thumbnailator.util.exif.Orientation;
 
 /**
- * Turns an uploaded photo into an image the model can use: decoded (including HEIC, via libheif), rotated upright
- * according to its orientation, and scaled down to fit provider limits.
+ * Turns an uploaded photo into an image the model can use: decoded (including HEIC), rotated upright according to
+ * its orientation, and scaled down to fit provider limits. Everything is pure Java, so no native libraries are needed
+ * on the controller.
  */
 public final class ImagePreprocessor {
     private static final Logger LOGGER = Logger.getLogger(ImagePreprocessor.class.getName());
@@ -42,43 +43,35 @@ public final class ImagePreprocessor {
 
     private static final int MAX_SHRINK_ATTEMPTS = 5;
 
-    static {
-        // Plugin jars aren't on the classpath ImageIO scans, so register the libheif-backed reader explicitly.
-        // It deregisters itself if libheif can't be loaded or the JVM is older than Java 22.
-        IIORegistry.getDefaultInstance().registerServiceProvider(new HeifImageReaderSpi());
-    }
+    /**
+     * Largest HEIC photo, in pixels, that will be decoded (about 268 MB of pixel data). Generous for phone photos,
+     * which are at most 48 MP, while refusing files that would exhaust the controller's memory.
+     */
+    static final long MAX_HEIC_PIXELS = 64L * 1024 * 1024;
+
+    private static final HeicDecodingOptions HEIC_OPTIONS =
+            HeicDecodingOptions.DEFAULT.withMaxPixelCount(MAX_HEIC_PIXELS);
 
     private ImagePreprocessor() {}
 
-    /** Whether HEIC/HEIF/AVIF photos can be decoded, i.e. libheif was found on this machine. */
-    public static boolean isHeifSupported() {
-        return ImageIO.getImageReadersByFormatName("heif").hasNext();
-    }
-
     /**
-     * Decodes an uploaded image and rotates it upright, so portrait phone photos don't arrive sideways.
+     * Decodes an uploaded image, including HEIC, and rotates it upright, so portrait phone photos don't arrive
+     * sideways.
      *
-     * @throws IOException if the data isn't an image format the server can decode
+     * @return the decoded image, or {@code null} if the data isn't in a format the server can decode
+     * @throws IOException if the image is in a supported format but can't be decoded
      */
     public static BufferedImage decode(byte[] data) throws IOException {
-        FileType type = FileTypeDetector.detectFileType(new BufferedInputStream(new ByteArrayInputStream(data)));
-        boolean decodedByLibheif = type == FileType.Heif || type == FileType.Avif;
-        BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
-        if (image == null) {
-            if (decodedByLibheif) {
-                throw new IOException(
-                        "Can't decode HEIC/HEIF/AVIF photos: libheif wasn't found on the Jenkins controller. "
-                                + "Install libheif with its HEVC decoder (e.g. apt-get install libheif-dev "
-                                + "libheif-plugin-libde265) and run Jenkins on Java 25.");
-            }
-            throw new IOException("Unsupported image format: " + type.getName());
-        }
-        if (decodedByLibheif) {
-            // libheif already applies the HEIF rotation and mirroring. iPhones also write an EXIF orientation that
-            // describes the same rotation, so applying it as well would turn the photo twice.
-            return image;
+        if (HeicImage.canLoad(data)) {
+            // The decoder applies the HEIF rotation and mirroring itself. iPhones also write an EXIF orientation
+            // describing the same rotation, so it must not be applied a second time.
+            return decodeHeic(data);
         }
 
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(data));
+        if (image == null) {
+            return null;
+        }
         Orientation orientation = Orientation.typeOf(readExifOrientation(data));
         if (orientation == null || orientation == Orientation.TOP_LEFT) {
             return image;
@@ -87,6 +80,21 @@ public final class ImagePreprocessor {
                 .scale(1.0)
                 .addFilter(ExifFilterUtils.getFilterForOrientation(orientation))
                 .asBufferedImage();
+    }
+
+    private static BufferedImage decodeHeic(byte[] data) throws IOException {
+        try {
+            HeicImage heic = HeicImage.load(data, HEIC_OPTIONS);
+            int width = heic.getWidth();
+            int height = heic.getHeight();
+            // Photos have no transparency, and dropping alpha keeps the PNG sent to the model smaller.
+            BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            int[] pixels = ((DataBufferInt) image.getRaster().getDataBuffer()).getData();
+            heic.decodeArgb(PixelRegion.ofSize(width, height), pixels, 0, width);
+            return image;
+        } catch (HeicFormatException e) {
+            throw new IOException("Could not decode the HEIC photo: " + e.getMessage(), e);
+        }
     }
 
     /**
