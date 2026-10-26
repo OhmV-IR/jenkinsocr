@@ -1,0 +1,12 @@
+<div>
+    How the OCR model writes the note and its formulas:
+    <ul>
+        <li><b>LATEX</b>: a LaTeX document segment. Its structure (sections, lists, emphasis) is converted to the note
+            application's own formatting and formulas are kept as TeX. TikZ pictures, figures and tables cannot be
+            converted and are kept as LaTeX source.</li>
+        <li><b>KATEX</b>: Markdown with <code>$...$</code> and <code>$$...$$</code> formulas.</li>
+        <li><b>PURE_TEXT</b>: plain text with formulas written in Unicode, for note applications that cannot render
+            equations.</li>
+    </ul>
+    If the selected note provider cannot render equations, builds print a warning when LATEX or KATEX is selected.
+</div>

@@ -1,24 +1,18 @@
 package io.ohmvir.plugins.jenkinsocr;
 
-import com.cloudbees.plugins.credentials.CredentialsMatchers;
-import com.cloudbees.plugins.credentials.common.StandardCredentials;
-import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
+import hudson.AbortException;
+import hudson.DescriptorExtensionList;
 import hudson.Extension;
-import hudson.model.Item;
-import hudson.security.ACL;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import io.ohmvir.plugins.jenkinsaisynapse.api.models.ModelData;
-import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
-import java.util.Collections;
+import io.ohmvir.plugins.jenkinsocr.notes.NoteProvider;
+import io.ohmvir.plugins.jenkinsocr.notes.NoteProviderDescriptor;
 import jenkins.model.GlobalConfiguration;
-import jenkins.model.Jenkins;
 import lombok.Getter;
 import lombok.Setter;
 import net.sf.json.JSONObject;
-import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.jspecify.annotations.NonNull;
-import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest2;
@@ -30,8 +24,7 @@ public class NoteOCRSettings extends GlobalConfiguration {
     private @Getter @Setter(onMethod_ = {@DataBoundSetter}) FormulaOutputType formulaOutputType =
             FormulaOutputType.LATEX;
     private @Getter @Setter(onMethod_ = {@DataBoundSetter}) double temperature = 0.1;
-    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) String notionApiTokenCredentialId = "";
-    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) String rootPageId = "";
+    private @Getter @Setter(onMethod_ = {@DataBoundSetter}) NoteProvider noteProvider;
 
     public NoteOCRSettings() {
         load();
@@ -50,6 +43,23 @@ public class NoteOCRSettings extends GlobalConfiguration {
 
     public ModelData getModel() {
         return ModelData.get(this.modelId);
+    }
+
+    /**
+     * The configured note provider.
+     *
+     * @throws AbortException if none is configured
+     */
+    public @NonNull NoteProvider getRequiredNoteProvider() throws AbortException {
+        if (noteProvider == null) {
+            throw new AbortException(
+                    "No note provider is configured. Choose one in the Note OCR settings (Manage Jenkins » System).");
+        }
+        return noteProvider;
+    }
+
+    public DescriptorExtensionList<NoteProvider, NoteProviderDescriptor> getNoteProviderDescriptors() {
+        return NoteProvider.all();
     }
 
     @Override
@@ -89,46 +99,7 @@ public class NoteOCRSettings extends GlobalConfiguration {
         }
     }
 
-    @POST
-    public FormValidation doCheckNotionApiTokenCredentialId(@QueryParameter String value) {
-        if (value == null || value.isBlank()) {
-            return FormValidation.error("Notion API token credential ID must not be blank");
-        }
-        String secretValue = SecretsUtils.getSecretText(value, null);
-        if (secretValue == null || secretValue.isBlank()) {
-            return FormValidation.error("Notion API token secret could not be loaded");
-        }
-        return FormValidation.ok();
-    }
-
-    @POST
-    public FormValidation doCheckRootPageId(@QueryParameter String value) {
-        if (value == null || value.isBlank()) {
-            return FormValidation.error("Root page ID should not be blank.");
-        }
-        return FormValidation.ok();
-    }
-
     public ListBoxModel doFillModelIdItems() {
         return ModelData.getAllModelsListBox();
-    }
-
-    public ListBoxModel doFillNotionApiTokenCredentialIdItems(
-            @AncestorInPath Item context, @QueryParameter String notionApiTokenCredentialId) {
-
-        if (context == null
-                ? !Jenkins.get().hasPermission(Jenkins.ADMINISTER)
-                : !context.hasPermission(Item.CONFIGURE)) {
-            return new StandardListBoxModel().includeCurrentValue(notionApiTokenCredentialId);
-        }
-
-        return new StandardListBoxModel()
-                .includeEmptyValue()
-                .includeMatchingAs(
-                        ACL.SYSTEM2,
-                        context,
-                        StandardCredentials.class,
-                        Collections.emptyList(),
-                        CredentialsMatchers.instanceOf(StringCredentials.class));
     }
 }

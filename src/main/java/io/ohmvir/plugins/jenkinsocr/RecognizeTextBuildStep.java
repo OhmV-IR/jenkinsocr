@@ -15,7 +15,8 @@ import io.ohmvir.plugins.jenkinsaisynapse.api.input.ModelRequest;
 import io.ohmvir.plugins.jenkinsaisynapse.api.input.TemperatureContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.ModelResponse;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.OutputTextContent;
-import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
+import io.ohmvir.plugins.jenkinsocr.notes.NotePaths;
+import io.ohmvir.plugins.jenkinsocr.notes.NoteProvider;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -81,14 +82,14 @@ public class RecognizeTextBuildStep extends Step {
             if (paramValue == null) {
                 throw new Exception("Parameter " + parameterName + " not found or was not an image parameter");
             }
+            NoteOCRSettings settings = NoteOCRSettings.get();
+            NoteProvider noteProvider = settings.getRequiredNoteProvider();
+            FormulaOutputType formulaOutputType = settings.getFormulaOutputType();
+            // Warn before spending time on the model: the note application cannot show the requested formulas.
+            noteProvider.warnIfFormulasUnsupported(formulaOutputType, listener);
             ModelRequest request = new ModelRequest();
-            String prompt =
-                    FORMULA_OUTPUT_TYPE_TO_PROMPT.get(NoteOCRSettings.get().getFormulaOutputType());
-            prompt = prompt.replace(
-                    "${DIR_TREE}",
-                    NotionUploadStep.getDirectoryTreeFormatted(
-                            NoteOCRSettings.get().getRootPageId(),
-                            SecretsUtils.getSecretText(NoteOCRSettings.get().getNotionApiTokenCredentialId(), null)));
+            String prompt = FORMULA_OUTPUT_TYPE_TO_PROMPT.get(formulaOutputType);
+            prompt = prompt.replace("${DIR_TREE}", NotePaths.formatTree(noteProvider.listFolderPaths(listener)));
             request.addInput(new InputTextContent(prompt));
             request.addInput(new InputImageContent(paramValue.getImageData()));
             request.addInput(new TemperatureContent(NoteOCRSettings.get().getTemperature()));
