@@ -78,8 +78,7 @@ public class RecognizeTextBuildStep extends Step {
             if (paramsAction == null) {
                 throw new Exception("No parameters action found in the build");
             }
-            ImageParameterValue paramValue = (ImageParameterValue) paramsAction.getParameter(parameterName);
-            if (paramValue == null) {
+            if (!(paramsAction.getParameter(parameterName) instanceof ImageParameterValue paramValue)) {
                 throw new Exception("Parameter " + parameterName + " not found or was not an image parameter");
             }
             NoteOCRSettings settings = NoteOCRSettings.get();
