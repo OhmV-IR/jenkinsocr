@@ -3,7 +3,6 @@ package io.ohmvir.plugins.jenkinsocr;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import hudson.model.ParametersAction;
 import hudson.model.ParametersDefinitionProperty;
@@ -53,22 +52,26 @@ class ImageParameterDefinitionTest {
     }
 
     @Test
-    void uploadedImageIsAvailableToTheBuild(JenkinsRule j) throws Exception {
-        WorkflowJob p = createJob(j, "def ok = true");
+    void uploadedImageIsAvailableWhileTheBuildRuns(JenkinsRule j) throws Exception {
+        // Not sandboxed so the script can read the parameter value directly. The image is never kept in a local
+        // variable because BufferedImage is not serializable and the program is saved at the echo step.
+        WorkflowJob p = j.createProject(WorkflowJob.class, "p");
+        p.addProperty(new ParametersDefinitionProperty(new ImageParameterDefinition("NOTE_IMAGE")));
+        p.setDefinition(new CpsFlowDefinition(
+                "def value = currentBuild.rawBuild.getAction(hudson.model.ParametersAction).getParameter('NOTE_IMAGE')\n"
+                        + "echo \"size=${value.imageData.width}x${value.imageData.height}"
+                        + " png=${value.imageDataPNG.length > 0}\"",
+                false));
         File png = tmp.resolve("note.png").toFile();
         ImageIO.write(new BufferedImage(7, 5, BufferedImage.TYPE_INT_RGB), "png", png);
 
         WorkflowRun b = buildWithUpload(j, p, png);
 
         j.assertBuildStatusSuccess(b);
+        j.assertLogContains("size=7x5 png=true", b);
         ImageParameterValue value = assertInstanceOf(
                 ImageParameterValue.class, b.getAction(ParametersAction.class).getParameter("NOTE_IMAGE"));
         assertEquals("note.png", value.getOriginalFileName());
-        BufferedImage image = value.getImageData();
-        assertNotNull(image);
-        assertEquals(7, image.getWidth());
-        assertEquals(5, image.getHeight());
-        assertNotNull(value.getImageDataPNG());
     }
 
     @Test
@@ -80,9 +83,6 @@ class ImageParameterDefinitionTest {
         WorkflowRun b = buildWithUpload(j, p, text.toFile());
 
         j.assertBuildStatus(Result.FAILURE, b);
-        j.assertLogContains("does not contain a readable image", b);
-        ImageParameterValue value = assertInstanceOf(
-                ImageParameterValue.class, b.getAction(ParametersAction.class).getParameter("NOTE_IMAGE"));
-        assertNull(value.getImageData());
+        j.assertLogContains("is not in a supported image format", b);
     }
 }

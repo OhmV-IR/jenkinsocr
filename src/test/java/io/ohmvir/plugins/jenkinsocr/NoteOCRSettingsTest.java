@@ -1,11 +1,13 @@
 package io.ohmvir.plugins.jenkinsocr;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import hudson.AbortException;
 import hudson.model.Descriptor;
 import hudson.model.User;
 import hudson.security.ACL;
@@ -15,13 +17,13 @@ import hudson.util.ListBoxModel;
 import hudson.util.Secret;
 import io.ohmvir.plugins.jenkinsaisynapse.configuration.ModelsManagementLink;
 import io.ohmvir.plugins.jenkinsaisynapse.configuration.models.ModelConfiguration;
+import io.ohmvir.plugins.jenkinsocr.notes.notion.NotionNoteProvider;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
 import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.MockAuthorizationStrategy;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
-import org.springframework.security.access.AccessDeniedException;
 
 @WithJenkins
 class NoteOCRSettingsTest {
@@ -54,8 +56,8 @@ class NoteOCRSettingsTest {
         assertEquals("", settings.getModelId());
         assertEquals(FormulaOutputType.LATEX, settings.getFormulaOutputType());
         assertEquals(0.1, settings.getTemperature());
-        assertEquals("", settings.getNotionApiTokenCredentialId());
-        assertEquals("", settings.getRootPageId());
+        assertNull(settings.getNoteProvider());
+        assertThrows(AbortException.class, settings::getRequiredNoteProvider);
     }
 
     @Test
@@ -64,8 +66,6 @@ class NoteOCRSettingsTest {
         settings.setModelId("test:model");
         settings.setFormulaOutputType(FormulaOutputType.KATEX);
         settings.setTemperature(0.4);
-        settings.setNotionApiTokenCredentialId("notion-token");
-        settings.setRootPageId("root-page");
         settings.save();
 
         NoteOCRSettings reloaded = new NoteOCRSettings();
@@ -73,8 +73,6 @@ class NoteOCRSettingsTest {
         assertEquals("test:model", reloaded.getModelId());
         assertEquals(FormulaOutputType.KATEX, reloaded.getFormulaOutputType());
         assertEquals(0.4, reloaded.getTemperature());
-        assertEquals("notion-token", reloaded.getNotionApiTokenCredentialId());
-        assertEquals("root-page", reloaded.getRootPageId());
     }
 
     @Test
@@ -96,28 +94,27 @@ class NoteOCRSettingsTest {
 
         assertEquals(FormValidation.Kind.ERROR, settings.doCheckModelId(" ").kind);
         assertEquals(FormValidation.Kind.OK, settings.doCheckModelId("test:model").kind);
-        assertEquals(FormValidation.Kind.ERROR, settings.doCheckRootPageId("").kind);
-        assertEquals(FormValidation.Kind.OK, settings.doCheckRootPageId("root-page").kind);
         assertEquals(FormValidation.Kind.ERROR, settings.doCheckFormulaOutputType(null).kind);
         assertEquals(FormValidation.Kind.OK, settings.doCheckFormulaOutputType(FormulaOutputType.KATEX).kind);
     }
 
     @Test
-    void credentialValidationRequiresAdministerAndAnExistingCredential(JenkinsRule j) throws Exception {
+    void notionCredentialValidationOnlyRevealsCredentialsToAdministrators(JenkinsRule j) throws Exception {
         SystemCredentialsProvider.getInstance()
                 .getCredentials()
                 .add(new StringCredentialsImpl(
                         CredentialsScope.GLOBAL, "notion-token", "Notion", Secret.fromString("secret")));
         secure(j);
-        NoteOCRSettings settings = NoteOCRSettings.get();
+        NotionNoteProvider.DescriptorImpl descriptor =
+                j.jenkins.getDescriptorByType(NotionNoteProvider.DescriptorImpl.class);
 
         try (ACLContext ignored = ACL.as(User.getById("admin", true))) {
-            assertEquals(FormValidation.Kind.OK, settings.doCheckNotionApiTokenCredentialId("notion-token").kind);
-            assertEquals(FormValidation.Kind.ERROR, settings.doCheckNotionApiTokenCredentialId("missing").kind);
-            assertEquals(FormValidation.Kind.ERROR, settings.doCheckNotionApiTokenCredentialId("").kind);
+            assertEquals(FormValidation.Kind.OK, descriptor.doCheckCredentialsId("notion-token").kind);
+            assertEquals(FormValidation.Kind.ERROR, descriptor.doCheckCredentialsId("missing").kind);
+            assertEquals(FormValidation.Kind.ERROR, descriptor.doCheckCredentialsId("").kind);
         }
         try (ACLContext ignored = ACL.as(User.getById("reader", true))) {
-            assertThrows(AccessDeniedException.class, () -> settings.doCheckNotionApiTokenCredentialId("notion-token"));
+            assertEquals(FormValidation.Kind.OK, descriptor.doCheckCredentialsId("missing").kind);
         }
     }
 

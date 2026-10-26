@@ -13,9 +13,11 @@ import io.ohmvir.plugins.jenkinsaisynapse.api.input.TemperatureContent;
 import io.ohmvir.plugins.jenkinsaisynapse.api.models.ModelData;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.ModelResponse;
 import io.ohmvir.plugins.jenkinsaisynapse.api.output.OutputTextContent;
-import io.ohmvir.plugins.jenkinsaisynapse.utils.SecretsUtils;
+import io.ohmvir.plugins.jenkinsocr.notes.NotePaths;
+import io.ohmvir.plugins.jenkinsocr.notes.NoteProvider;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import lombok.Getter;
 import org.jenkinsci.Symbol;
@@ -61,11 +63,11 @@ public class RecognizeTextBuildStep extends Step {
             if (!(rawValue instanceof ImageParameterValue paramValue)) {
                 throw new AbortException("Parameter " + parameterName + " is not an image parameter");
             }
-            BufferedImage image = paramValue.getImageData();
-            if (image == null) {
-                throw new AbortException("Parameter " + parameterName
-                        + " does not contain a readable image. The upload may be in an unsupported format,"
-                        + " or it was lost because Jenkins restarted after the build was queued.");
+            BufferedImage image;
+            try {
+                image = paramValue.getImageData();
+            } catch (IOException e) {
+                throw new AbortException(e.getMessage());
             }
 
             NoteOCRSettings settings = NoteOCRSettings.get();
@@ -74,19 +76,21 @@ public class RecognizeTextBuildStep extends Step {
                 throw new AbortException("Model '" + settings.getModelId()
                         + "' is not available. Configure a model under Note OCR Settings.");
             }
-            String apiToken = SecretsUtils.getSecretText(settings.getNotionApiTokenCredentialId(), null);
-            if (apiToken == null || apiToken.isBlank()) {
-                throw new AbortException("Notion API token credential '" + settings.getNotionApiTokenCredentialId()
-                        + "' could not be found. Configure it under Note OCR Settings.");
-            }
-
-            String dirTree;
+            NoteProvider noteProvider = settings.getRequiredNoteProvider();
+            FormulaOutputType formulaOutputType = settings.getFormulaOutputType();
+            // Warn before spending time on the model: the note application cannot show the requested formulas.
+            noteProvider.warnIfFormulasUnsupported(formulaOutputType, listener);
+            List<String> folderPaths;
             try {
-                dirTree = new NotionClient(apiToken).getDirectoryTreeFormatted(settings.getRootPageId());
-            } catch (IOException | IllegalArgumentException e) {
-                throw new AbortException("Failed to read the Notion folder tree: " + e.getMessage());
+                folderPaths = noteProvider.listFolderPaths(listener);
+            } catch (AbortException e) {
+                throw e;
+            } catch (IOException e) {
+                throw new AbortException("Failed to list the folders in "
+                        + noteProvider.getDescriptor().getDisplayName() + ": " + e.getMessage());
             }
-            String prompt = OcrPrompts.render(settings.getFormulaOutputType(), dirTree);
+            String prompt = OcrPrompts.render(formulaOutputType, NotePaths.formatTree(folderPaths));
+
             ModelRequest request = new ModelRequest();
             request.addInput(new InputTextContent(prompt));
             request.addInput(new InputImageContent(image));
