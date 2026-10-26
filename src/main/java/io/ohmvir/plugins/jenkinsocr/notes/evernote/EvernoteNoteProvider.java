@@ -13,6 +13,7 @@ import io.ohmvir.plugins.jenkinsocr.notes.NoteProviderDescriptor;
 import io.ohmvir.plugins.jenkinsocr.notes.NoteUploadResult;
 import java.io.IOException;
 import java.util.List;
+import lombok.Getter;
 import org.jenkinsci.Symbol;
 import org.jspecify.annotations.NonNull;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -26,23 +27,17 @@ import org.kohsuke.stapler.verb.POST;
  * text output.
  */
 public class EvernoteNoteProvider extends NoteProvider {
+    /** The ID of the "Secret text" credential holding the Evernote developer token or OAuth access token. */
+    @Getter
     private final String credentialsId;
+
+    /** The Evernote service the account belongs to. */
+    @Getter
     private EvernoteService service = EvernoteService.PRODUCTION;
 
     @DataBoundConstructor
     public EvernoteNoteProvider(String credentialsId) {
         this.credentialsId = credentialsId;
-    }
-
-    /**
-     * The ID of the "Secret text" credential holding the Evernote developer token or OAuth access token.
-     */
-    public String getCredentialsId() {
-        return credentialsId;
-    }
-
-    public EvernoteService getService() {
-        return service;
     }
 
     @DataBoundSetter

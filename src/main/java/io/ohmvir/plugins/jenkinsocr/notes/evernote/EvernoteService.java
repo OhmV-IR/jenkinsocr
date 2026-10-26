@@ -1,6 +1,7 @@
 package io.ohmvir.plugins.jenkinsocr.notes.evernote;
 
 import java.net.URI;
+import lombok.Getter;
 
 /**
  * The Evernote service an account belongs to.
@@ -10,16 +11,15 @@ public enum EvernoteService {
     YINXIANG("Yinxiang Biji (印象笔记)", "https://app.yinxiang.com"),
     SANDBOX("Evernote developer sandbox", "https://sandbox.evernote.com");
 
+    /** The name shown in the configuration form. */
+    @Getter
     private final String displayName;
+
     private final String baseUrl;
 
     EvernoteService(String displayName, String baseUrl) {
         this.displayName = displayName;
         this.baseUrl = baseUrl;
-    }
-
-    public String getDisplayName() {
-        return displayName;
     }
 
     /**
