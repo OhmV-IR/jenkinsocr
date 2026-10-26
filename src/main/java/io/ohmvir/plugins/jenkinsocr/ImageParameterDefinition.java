@@ -22,15 +22,7 @@ public class ImageParameterDefinition extends ParameterDefinition {
 
     @Override
     public ParameterValue createValue(StaplerRequest2 req, JSONObject jo) {
-        try {
-            FileItem<?> item = req.getFileItem2(getName());
-            if (item == null || item.getName().isEmpty()) {
-                return null;
-            }
-            return new ImageParameterValue(getName(), item);
-        } catch (ServletException | IOException e) {
-            throw new IllegalArgumentException("Failed to upload image from form submission", e);
-        }
+        return createValueFromUpload(req, "Failed to upload image from form submission");
     }
 
     @Override
@@ -40,14 +32,20 @@ public class ImageParameterDefinition extends ParameterDefinition {
 
     @Override
     public ParameterValue createValue(StaplerRequest2 req) {
+        return createValueFromUpload(req, "Failed to upload image");
+    }
+
+    private ParameterValue createValueFromUpload(StaplerRequest2 req, String errorMessage) {
         try {
             FileItem<?> item = req.getFileItem2(getName());
-            if (item == null || item.getName().isEmpty()) {
+            if (item == null || item.getName() == null || item.getName().isEmpty()) {
                 return null;
             }
-            return new ImageParameterValue(getName(), item);
+            ImageParameterValue value = new ImageParameterValue(getName(), item);
+            value.setDescription(getDescription());
+            return value;
         } catch (ServletException | IOException e) {
-            throw new IllegalArgumentException("Failed to upload image", e);
+            throw new IllegalArgumentException(errorMessage, e);
         }
     }
 

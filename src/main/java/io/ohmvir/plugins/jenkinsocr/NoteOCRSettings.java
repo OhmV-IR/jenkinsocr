@@ -6,9 +6,12 @@ import hudson.Extension;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 import io.ohmvir.plugins.jenkinsaisynapse.api.models.ModelData;
+import io.ohmvir.plugins.jenkinsaisynapse.configuration.ModelsManagementLink;
+import io.ohmvir.plugins.jenkinsaisynapse.configuration.models.ModelConfiguration;
 import io.ohmvir.plugins.jenkinsocr.notes.NoteProvider;
 import io.ohmvir.plugins.jenkinsocr.notes.NoteProviderDescriptor;
 import jenkins.model.GlobalConfiguration;
+import jenkins.model.Jenkins;
 import lombok.Getter;
 import lombok.Setter;
 import net.sf.json.JSONObject;
@@ -99,7 +102,19 @@ public class NoteOCRSettings extends GlobalConfiguration {
         }
     }
 
-    public ListBoxModel doFillModelIdItems() {
-        return ModelData.getAllModelsListBox();
+    public ListBoxModel doFillModelIdItems(@QueryParameter String modelId) {
+        ListBoxModel items = new ListBoxModel();
+        if (!Jenkins.get().hasPermission(Jenkins.ADMINISTER)) {
+            return items;
+        }
+        // Built from the configurations rather than ModelData.getAllModelsListBox(), which swaps the
+        // display name and value, so the saved value is the model ID that ModelData.get expects.
+        for (ModelConfiguration config : ModelsManagementLink.get().getModelConfigurations()) {
+            items.add(new ListBoxModel.Option(
+                    config.getModelIdDisplayName(),
+                    config.getModelId(),
+                    config.getModelId().equals(modelId)));
+        }
+        return items;
     }
 }
